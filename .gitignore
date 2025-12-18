@@ -1,0 +1,31 @@
+# Build directories
+build/
+out/
+Debug/
+Release/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+CLAUDE.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Compiler output
+*.o
+*.so
+*.a
+*.out
+*.exe
+*.dSYM/
+
+# CMake
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Testing
+Testing/
