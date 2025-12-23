@@ -3,6 +3,7 @@
 #include <atomic>
 #include <iostream>
 #include <immintrin.h>
+#include <stdatomic.h>
 #include <vector>
 
 #include "macros.h"
@@ -14,16 +15,78 @@ namespace Common {
     class LFQueue final { // !final 防止被继承
     public:
         // !explicit 防止隐式转换(对单参数构造函数)
-        explicit LFQueue(std::size_t num_elems) : 
+        explicit LFQueue(std::size_t num_elems) :
             store_(round_up_to_power_of_2(num_elems), T()),
             mask_(store_.size() - 1),
             capacity_(store_.size()) {
         }
 
-
         auto tryGetNextToWriteTo() noexcept {
+            auto currentWrite = nextWriteIndex.load(std::memory_order_relaxed);
+            auto currentRead = nextReadIndex.load(std::memory_order_acquire);
 
+            if (UNLIKELY(((currentWrite + 1) & mask_)) == (currentRead & mask_)) {
+                return nullptr;
+            }
+
+            return &store_[currentWrite & mask_];
         }
+
+        // 获取队列中下一个可用于写入的槽位地址。该函数会持续轮询，直到有可用空间为止
+        auto getNextToWriteTo() noexcept {
+            while (true) {
+                auto slot = tryGetNextToWriteTo();
+                if (LIKELY(slot != nullptr)) {
+                    return slot;
+                }
+                _mm_pause();
+            }
+        }
+
+        auto updateWriteIndex() const noexcept {
+            auto currentWriteIndex = nextWriteIndex.load(std::memory_order_relaxed);
+            nextWriteIndex.store(currentWriteIndex + 1, std::memory_order_release);
+            numElements.fetch_add(1, memory_order_release);
+        }
+
+        auto getNextToRead() const noexcept {
+            auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
+            auto currentElementCount = numElements.load(std::memory_order_acquire);
+
+            if (LIKELY(currentElementCount > 0)) {
+                std::size_t targetIndex = currentReadIndex & mask_;
+                return &store_[targetIndex];
+            } else {
+                return nullptr;
+            }
+        }
+
+        auto upadteReadIndex() noexcept {
+            auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
+            nextReadIndex.store(currentReadIndex + 1, std::memory_order_release);
+            numElements.fetch_sub(1, std::memory_order_release);
+        }
+
+        auto size() const noexcept {
+                return numElements.load(std::memory_order_acquire);
+            }
+
+        auto is_full() const noexcept -> bool {
+            auto current_write = nextWriteIndex.load(std::memory_order_relaxed);
+            auto current_read = nextReadIndex.load(std::memory_order_relaxed);
+            return ((current_write + 1) & mask_) == (current_read & mask_);
+        }
+
+        auto capacity() const noexcept -> std::size_t {
+            return capacity_;
+        }
+
+        LFQueue() = delete;
+        LFQueue(const LFQueue &) = delete;
+        LFQueue(const LFQueue &&) = delete;
+        LFQueue &operator=(const LFQueue &) = delete;
+        LFQueue &operator=(const LFQueue &&) = delete;
+
     private:
         static std::size_t round_up_to_power_of_2(std::size_t num) {
             if (UNLIKELY(num == 0)) return 1;
