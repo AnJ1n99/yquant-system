@@ -9,6 +9,7 @@ Release/
 .idea/
 *.iml
 CLAUDE.md
+.cursor/
 
 # OS
 .DS_Store
@@ -26,6 +27,8 @@ Thumbs.db
 CMakeCache.txt
 cmake_install.cmake
 compile_commands.json
+cmake-build-debug/
+cmake-build-release/
 
 # Testing
-Testing/
+test/

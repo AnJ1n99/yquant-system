@@ -32,7 +32,7 @@ namespace Common {
             return &store_[currentWrite & mask_];
         }
 
-        // 获取队列中下一个可用于写入的槽位地址。该函数会持续轮询，直到有可用空间为止
+        // * 获取队列中下一个可用于写入的槽位地址。该函数会持续轮询，直到有可用空间为止
         auto getNextToWriteTo() noexcept {
             while (true) {
                 auto slot = tryGetNextToWriteTo();
@@ -49,7 +49,8 @@ namespace Common {
             numElements.fetch_add(1, memory_order_release);
         }
 
-        auto getNextToRead() const noexcept {
+        // consumer operation
+        auto getNextToRead() const noexcept -> const T *{
             auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
             auto currentElementCount = numElements.load(std::memory_order_acquire);
 
@@ -61,7 +62,7 @@ namespace Common {
             }
         }
 
-        auto upadteReadIndex() noexcept {
+        auto updateReadIndex() noexcept {
             auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
             nextReadIndex.store(currentReadIndex + 1, std::memory_order_release);
             numElements.fetch_sub(1, std::memory_order_release);
