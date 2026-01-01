@@ -1,18 +1,22 @@
 #pragma once
 
+#include "macros.h"
 #include "types.h"
 #include <cstdint>
 #include <fstream>
 #include <thread>
 
 #include "ringBuffer.h"
-#include "logging.h"
 #include "time_utils.h"
 #include "thread_utils.h"
 
+
+// 日式输出格式 <timestamp> <type> <tag> <value>
+// 14:23:45.123456 RDTSC T3_MatchingEngine_LFQueue_read 5200
+
 namespace Common {
     // 用于记录日志的数据的无锁队列的最大大小
-    constexpr size_t LOG_QUEUE_SIZE = 8* 1024 * 1024; // 256K
+    constexpr size_t LOG_QUEUE_SIZE = 8* 1024 * 1024; // 8MB 队列
 
     // Type of logElement message
     // 每种类型对应于`LogElement`联合体中的特定字段
@@ -25,7 +29,8 @@ namespace Common {
         UNSIGNED_LONG_INTEGER = 5,
         UNSIGNED_LONG_LONG_INTEGER = 6,
         FLOAT = 7,
-        DOUBLE = 8
+        DOUBLE = 8,
+        CONST_STRING = 9  // 常量字符串（字符串字面量），整个程序生命周期有效
     };
 
     struct LogElement {
@@ -41,7 +46,9 @@ namespace Common {
             unsigned long long ull;
             float f;
             double d;
+            const char* str;  // 用于常量字符串指针
         } u_;
+
     };
 
     class Logger final {
@@ -79,8 +86,11 @@ namespace Common {
                         case LogType::DOUBLE:
                             file_ << next->u_.d;
                             break;
+                        case LogType::CONST_STRING:
+                            file_ << next->u_.str;
+                            break;
                     }
-                    queue_.upadteReadIndex();
+                    queue_.updateReadIndex();
                 }
                 file_.flush();
 
@@ -89,19 +99,21 @@ namespace Common {
             }
         }
 
-        explicit Logger(const std::string &fileName) 
+        explicit Logger(const std::string &fileName)
                 : fileName_(fileName)
                 , queue_(LOG_QUEUE_SIZE) {
-            
+
             file_.open(fileName);
             ASSERT(file_.is_open(), "Could not open log file:" + fileName);
             loggerThread_ = creatAndStartThread(-1, "Common/Logger" + fileName_, [this](){ flushQueue();});
             ASSERT(loggerThread_ != nullptr, "Failed to start Logger thread.");
         }
 
+        // 确保后台日志线程在对象销毁前完成所有待写入的日志，并正确释放资源
         ~Logger() {
-            std::string time_str;
-            std::cerr << Common::getCurrentTimeStr(&time_str) << " Flushing and closing Logger for " << fileName_ << std::endl;
+            std::string timeStr;
+            getCurrentTimeStr(timeStr);
+            std::cerr << timeStr << " Flushing and closing Logger for " << fileName_ << std::endl;
 
             while (queue_.size()) {
                 using namespace std::literals::chrono_literals;
@@ -111,9 +123,129 @@ namespace Common {
             running_ = false;
             loggerThread_->join();
 
+            file_.close();
+            getCurrentTimeStr(timeStr);
+            std::cerr << timeStr << " Logger for " << fileName_ << " exiting." << std::endl;
         }
 
-private:
+        /// Overloaded methods to write different log entry types to the lock free queue.
+        /// Creates a LogElement of the correct type and writes it to the lock free queue.
+        auto pushValue(const LogElement &logElement) noexcept {
+            *(queue_.getNextToWriteTo()) = logElement;
+            queue_.updateWriteIndex();
+        }
+
+        auto pushValue(const char value) noexcept {
+            pushValue(LogElement{LogType::CHAR, {.c = value}});
+        }
+
+        auto pushValue(const int value) noexcept {
+            pushValue(LogElement{LogType::INTEGER, {.i = value}});
+        }
+
+        auto pushValue(const long value) noexcept {
+            pushValue(LogElement{LogType::LONG_INTEGER, {.l = value}});
+        }
+
+        auto pushValue(const long long value) noexcept {
+            pushValue(LogElement{LogType::LONG_LONG_INTEGER, {.ll = value}});
+        }
+
+        auto pushValue(const unsigned value) noexcept {
+            pushValue(LogElement{LogType::UNSIGNED_INTEGER, {.u = value}});
+        }
+
+        auto pushValue(const unsigned long value) noexcept {
+            pushValue(LogElement{LogType::UNSIGNED_LONG_INTEGER, {.ul = value}});
+        }
+
+        auto pushValue(const unsigned long long value) noexcept {
+            pushValue(LogElement{LogType::UNSIGNED_LONG_LONG_INTEGER, {.ull = value}});
+        }
+
+        auto pushValue(const float value) noexcept {
+            pushValue(LogElement{LogType::FLOAT, {.f = value}});
+        }
+
+        auto pushValue(const double value) noexcept {
+            pushValue(LogElement{LogType::DOUBLE, {.d = value}});
+        }
+
+        // For constant string literals (high performance, single queue operation)
+        // 用于字符串字面量（高性能，单次队列操作）
+        // WARNING: Only use with string literals or static const char*, NOT temporary strings!
+        // !：仅用于字符串字面量或静态 const char*，不要用于临时字符串！
+        auto pushConstString(const char *value) noexcept {
+            pushValue(LogElement{LogType::CONST_STRING, {.str = value}});
+        }
+
+        // For dynamic strings (char-by-char, safe for temporary strings)
+        // 用于动态字符串（逐字符写入，适用于临时字符串）
+        auto pushValue(const char *value) noexcept {
+            if (UNLIKELY(!*value)) return;  // 快速路径：空字符串
+
+            while (*value) {
+                pushValue(*value);
+                ++value;
+            }
+        }
+
+        auto pushValue(const std::string &value) noexcept {
+            pushValue(value.c_str());
+        }
+
+        // Parse the format string, substitute % with the variable number of arguments passed
+        // and write the string to the lock free queue.
+        /*
+         * 简单例子：
+         - `log("px=% py=%", 1, 2)` 会输出 `px=1 py=2`
+         - `log("100%% ok")` 会输出 `100% ok`
+         - `log("x=%")`（无参）会报“missing arguments”
+         - `log("x=", 1)` 会报“extra arguments”
+         */
+        template<typename T, typename... A>
+        auto log(const char* s, const T &value, A... args) noexcept {
+            while (*s) {
+                if (*s == '%') {
+                    if (UNLIKELY(*(s + 1) == '%')) { // to allow %% -> % escape character.
+                        ++s;
+                    } else {
+                        pushValue(value);  // // substitute % with the value specified in the arguments.
+                        log(s + 1,  args...);
+                        return;
+                    }
+                }
+                pushValue(*s++);
+            }
+            FATAL("extra arguments provided to log()");
+        }
+
+        /// Overload for case where no substitution in the string is necessary.
+        /// Note that this is overloading not specialization. gcc does not allow inline specializations.
+        auto log(const char *s) noexcept {
+            while (*s) {
+                if (*s == '%') {
+                    if (UNLIKELY(*(s + 1) == '%')) { // to allow %% -> % escape character.
+                      ++s;
+                    } else {
+                      FATAL("missing arguments to log()");
+                    }
+                }
+                pushValue(*s++);
+            }
+        }
+
+        // Deleted default, copy & move constructors and assignment-operators.
+        Logger() = delete;
+
+        Logger(const Logger &) = delete;
+
+        Logger(const Logger &&) = delete;
+
+        Logger &operator=(const Logger &) = delete;
+
+        Logger &operator=(const Logger &&) = delete;
+    private:
         // File to which the log entries will be written.
         const std::string fileName_;
         std::ofstream file_;

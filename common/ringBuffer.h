@@ -33,7 +33,7 @@ namespace Common {
         }
 
         // * 获取队列中下一个可用于写入的槽位地址。该函数会持续轮询，直到有可用空间为止
-        auto getNextToWriteTo() noexcept {
+        auto getNextToWriteTo() noexcept -> T* {
             while (true) {
                 auto slot = tryGetNextToWriteTo();
                 if (LIKELY(slot != nullptr)) {
@@ -43,10 +43,10 @@ namespace Common {
             }
         }
 
-        auto updateWriteIndex() const noexcept {
+        auto updateWriteIndex() noexcept {
             auto currentWriteIndex = nextWriteIndex.load(std::memory_order_relaxed);
             nextWriteIndex.store(currentWriteIndex + 1, std::memory_order_release);
-            numElements.fetch_add(1, memory_order_release);
+            numElements.fetch_add(1, std::memory_order_release);
         }
 
         // consumer operation
