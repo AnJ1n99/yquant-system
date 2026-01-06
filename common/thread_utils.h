@@ -28,7 +28,7 @@ namespace Common {
 
     //creates a new thread with CPU affinity and name assignment
     template <class T, class...A>
-    inline auto creatAndStartThread(int core_id, const std::string &name, T &&func, A &&... args) noexcept {
+    inline auto createAndStartThread(int core_id, const std::string &name, T &&func, A &&... args) noexcept {
         auto t = new std::thread(
             [core_id, name](T &&f, A &&... a) -> void {
             if (core_id >= 0 && !setThreadCore(core_id)) {
