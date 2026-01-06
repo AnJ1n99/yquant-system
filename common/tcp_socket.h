@@ -12,11 +12,18 @@
 #include "logging.h"
 #include "time_utils.h"
 
+namespace Exchange {
+    class OrderManager;
+}
+
 namespace Common {
 	// size of our send and receive buffers in bytes.
 	constexpr size_t TCPBufferSize = 64 * 1024 * 1024; // 64MB
 
 	class TCPSocket {
+		friend class TCPServer;
+		friend class Exchange::OrderManager;
+
 	public:
 		explicit TCPSocket(Logger &logger) : logger_(logger) {
 		    outbound_data_.resize(TCPBufferSize);
@@ -32,20 +39,11 @@ namespace Common {
 		// write outgoing data to the send buffers
 		void send(const void* data, size_t len) noexcept;
 
-		auto getSocketFd() const -> int { 
-			return socket_fd; 
-		}
 		auto setSocketFd(int fd) -> void { 
 			socket_fd = fd; 
 		}
 		void setRecvback(std::function<void(TCPSocket* s, Nanos rx_time)> callback) { 
 			recv_callback = callback; 
-		}
-		auto getNextRcvValidIndex() const -> size_t { 
-			return nextRevVaildIndex_; 
-		}
-		auto getInboundData() const -> std::vector<uint8_t> { 
-			return inbound_data_; 
 		}
 
 		// Deleted default, copy & move constructors and assignment-operators.

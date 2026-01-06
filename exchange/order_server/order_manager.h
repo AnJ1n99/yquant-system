@@ -70,38 +70,42 @@ namespace Exchange {
         //   - rxTime: 接收数据的时间戳（纳秒）
         auto recvCallback(TCPSocket* socket, Nanos rxTime) noexcept {
             TTT_MEASURE(T1_OrderManager, logger);
-            logger.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
-                  socket->getSocketFd(), socket->getNextRcvValidIndex(), rxTime);
+            Common::getCurrentTimeStr(time_str_);
+            logger.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
+                  socket->socket_fd, socket->nextRevVaildIndex_, rxTime);
 
             // 检查接收缓冲区是否至少包含一个完整的请求（OMClientRequest结构体）
-            if (socket->getNextRcvValidIndex() >= sizeof(OMClientRequest)) {
+            if (socket->nextRevVaildIndex_ >= sizeof(OMClientRequest)) {
                 size_t i = 0;
                 // 遍历接收缓冲区中的所有完整请求
-                for (; i + sizeof(OMClientRequest) <= socket->getNextRcvValidIndex(); i += sizeof(OMClientRequest)) {
-                    auto request = reinterpret_cast<const OMClientRequest *>(socket->getInboundData().data() + i);
-                    logger.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), request->toString());
+                for (; i + sizeof(OMClientRequest) <= socket->nextRevVaildIndex_; i += sizeof(OMClientRequest)) {
+                    auto request = reinterpret_cast<const OMClientRequest *>(socket->inbound_data_.data() + i);
+                    Common::getCurrentTimeStr(time_str_);
+                    logger.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, time_str_, request->toString());
 
                     // 检查是否是来自该客户端的第一条消息
                     // 如果是，则记录该客户端ID对应的TCP套接字
-                    if (UNLIKELY(cidTcpSocketMap[request->me_client_request_.client_id_] == nullptr)) { // first message from this ClientId.
-                        cidTcpSocketMap[request->me_client_request_.client_id_] = socket;
+                    if (UNLIKELY(cidTcpSocketMap[request->meClientRequest.clientId_] == nullptr)) { // first message from this ClientId.
+                        cidTcpSocketMap[request->meClientRequest.clientId_] = socket;
                     }
 
                     // 验证客户端身份：检查请求是否来自该客户端绑定的套接字
                     // 防止客户端使用错误的连接发送请求（安全检查）
-                    if (cidTcpSocketMap[request->me_client_request_.client_id_] != socket) { // TODO - change this to send a reject back to the client.
+                    if (cidTcpSocketMap[request->meClientRequest.clientId_] != socket) { // TODO - change this to send a reject back to the client.
+                        Common::getCurrentTimeStr(time_str_);
                         logger.log("%:% %() % Received ClientRequest from ClientId:% on different socket:% expected:%\n", __FILE__, __LINE__, __FUNCTION__,
-                        Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, socket->socket_fd_,
-                        cidTcpSocketMap[request->me_client_request_.client_id_]->socket_fd_);
+                        time_str_, request->meClientRequest.clientId_, socket->socket_fd,
+                        cidTcpSocketMap[request->meClientRequest.clientId_]->socket_fd);
                         continue;
                     }
 
                     // 获取该客户端期望的下一个序列号
-                    auto &nextExpSeqNum = cidNextExpSeqNum[request->me_client_request_.client_id_];
+                    auto &nextExpSeqNum = cidNextExpSeqNum[request->meClientRequest.clientId_];
                     // 验证序列号：确保请求按顺序到达
-                    if (request->seq_num_ != nextExpSeqNum) { // TODO - change this to send a reject back to the client.
+                    if (request->seqNum != nextExpSeqNum) { // TODO - change this to send a reject back to the client.
+                        Common::getCurrentTimeStr(time_str_);
                         logger.log("%:% %() % Incorrect sequence number. ClientId:% SeqNum expected:% received:%\n", __FILE__, __LINE__, __FUNCTION__,
-                        Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, nextExpSeqNum, request->seq_num_);
+                        time_str_, request->meClientRequest.clientId_, nextExpSeqNum, request->seqNum);
                         continue;
                     }
 
@@ -110,13 +114,13 @@ namespace Exchange {
 
                     // 将有效的客户端请求添加到FIFOSequencer进行排序和处理
                     START_MEASURE(Exchange_FIFOSequencer_addClientRequest);
-                    fifoSequencer.addClientRequest(rxTime, request->me_client_request_);
+                    fifoSequencer.addClientRequest(rxTime, request->meClientRequest);
                     END_MEASURE(Exchange_FIFOSequencer_addClientRequest, logger);
                 }
 
                 // 将未处理的剩余数据移动到缓冲区开头，并更新有效数据长度
-                memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->next_rcv_valid_index_ - i);
-                socket->next_rcv_valid_index_ -= i;
+                memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->nextRevVaildIndex_ - i);
+                socket->nextRevVaildIndex_ -= i;
             }
         }   
 

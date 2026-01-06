@@ -11,7 +11,7 @@ auto TCPServer::addToEpollList(TCPSocket *socket) {
 	epoll_event ev {EPOLLET | EPOLLIN, {reinterpret_cast<void*>(socket)}};
 	// 设置边缘触发(EPOLLET)和监听可读事件(EPOLLIN)
     // 将 socket->socket_fd_ 添加到 epoll_fd_ 的监听列表中
-	return !epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket->socket_fd_, &ev);
+	return !epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket->socket_fd, &ev);
 }
 
 auto TCPServer::listen(const std::string& iface, int port) -> void {
@@ -94,7 +94,7 @@ auto TCPServer::poll() noexcept -> void {
             time_str_);
         sockaddr_storage addr;
         socklen_t addr_len = sizeof(addr);
-        int fd = accept(listener_socket.getSocketFd(), (sockaddr*)&addr, &addr_len);
+        int fd = accept(listener_socket.socket_fd, (sockaddr*)&addr, &addr_len);
         if (fd < 0) {
             break;
         }
