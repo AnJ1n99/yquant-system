@@ -21,14 +21,16 @@ namespace Common {
 	#define END_MEASURE(TAG, LOGGER)                \
 		do {                                        \
 			auto end = Common::rdtsc();             \
-			LOGGER.log("% RDTSC "#TAG" %\n", Common::getCurrentTimeStr(&time_str_), (end - TAG)); \
+			Common::getCurrentTimeStr(time_str_);  \
+			LOGGER.log("% RDTSC "#TAG" %\n", time_str_, (end - TAG)); \
 		} while (false)
 
 	// Log a current timestamp at the time this macro is invoked.
 	// 分析多个事件发生的先后顺序或绝对时间点（Time-To-Tick）
 	#define TTT_MEASURE(TAG, LOGGER)            \
 		do {                                    \
-			const auto TAG = Common::rdtsc();   \
-			LOGGER.log("% TTT "#TAG" %\n", Common::getCurrentTimeStr(&time_str_), TAG);   \
+			const auto TAG = Common::getCurrentNanos(); \
+			Common::getCurrentTimeStr(time_str_);      \
+			LOGGER.log("% TTT "#TAG" %\n", time_str_, TAG); \
 		} while (false)
 }

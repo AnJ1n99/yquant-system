@@ -17,6 +17,11 @@ namespace Common {
   	constexpr size_t ME_MAX_CLIENT_UPDATES = 256 * 1024;
   	constexpr size_t ME_MAX_MARKET_UPDATES = 256 * 1024;
 
+	// Maximum number of clients supported by the system.
+	constexpr size_t ME_MAX_NUM_CLIENTS = 256;
+
+
+
   	typedef uint64_t OrderId;
  	constexpr auto OrderId_INVALID = std::numeric_limits<OrderId>::max();
 

@@ -39,7 +39,7 @@ namespace Exchange {
     // - 减少内存占用
     // - 提高数据序列化/反序列化的性能
     // - 确保跨进程/网络传输的数据格式一致性
-    struct MEClientRequest {
+    struct MEClientRequest { // 实际的客户端请求
         ClientRequestType type_ = ClientRequestType::INVAILD;
 
        // 初始化示例 - 表示一个未初始化的订单结构

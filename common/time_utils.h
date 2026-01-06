@@ -29,7 +29,7 @@ namespace Common {
 	// 将当前时间戳格式化为易于阅读的字符串，用于日志记录和调试
 	// 例如 "14:30:05.123456789" (UTC 时间)
 	// 优化版本：使用预分配缓冲区避免内存分配，使用 UTC 避免时区查询开销
-	inline void getCurrentTimeStr(std::string& timeStr) {
+	inline auto getCurrentTimeStr(std::string& timeStr) {
 	    const auto now = std::chrono::system_clock::now().time_since_epoch();
 
 	    // 直接从 epoch 计算秒和纳秒，避免精度损失

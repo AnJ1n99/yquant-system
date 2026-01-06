@@ -15,6 +15,7 @@
 #include <utility>
 #include "client_request.h"
 #include "../../common/logging.h"
+#include "../../common/perf_utils.h"
 
 namespace Exchange {
 constexpr std::size_t ME_MAX_PENDING_REQUESTS = 1024;
@@ -39,47 +40,48 @@ public:
         pendingClientRequests.at(pendingSize++) = std::move(RecvTimeClientRequest{rxTime, request});
     }
 
+    // 接收到一批请求后，按接收时间排序，并将它们写入无锁队列供后续处理
     auto sequenceAndPublish() {
         if (UNLIKELY(!pendingSize)) return;
 
-        getCurrentTimeStr(time);
+        getCurrentTimeStr(time_str_);
         logger_->log("%:% %() % Processing % requests.\n",
-                     __FILE__, __LINE__, __FUNCTION__, time, pendingSize);
+                     __FILE__, __LINE__, __FUNCTION__, time_str_, pendingSize);
 
         std::sort(pendingClientRequests.begin(), pendingClientRequests.begin() + pendingSize);
 
         for (size_t i = 0; i < pendingSize; ++i) {
             const auto &client_request = pendingClientRequests.at(i);
 
-            getCurrentTimeStr(time);
+            getCurrentTimeStr(time_str_);
             logger_->log("%:% %() % Writing RX: % Req % to FIFO.\n",
-                         __FILE__, __LINE__, __FUNCTION__, time, client_request.recvTime, client_request.request.toString());
+                         __FILE__, __LINE__, __FUNCTION__, time_str_, client_request.recvTime, client_request.request.toString());
 
             auto nextWrite = incomingRequest_->getNextToWriteTo();
             *nextWrite = std::move(client_request.request);
             incomingRequest_->updateWriteIndex();
             TTT_MEASURE(T2_OrderServer_LFQueue_write, (*logger_));
-
-            }
+        }
         pendingSize = 0;
     }
 
-    FIFOSequencer()                                = delete;
-    FIFOSequencer(const FIFOSequencer &)           = delete;
-    FIFOSequencer(const FIFOSequencer &&)          = delete;
-    FIFOSequencer operator=(const FIFOSequencer&)  = delete;
-    FIFOSequencer operator=(const FIFOSequencer&&) = delete;
+    FIFOSequencer()                                 = delete;
+    FIFOSequencer(const FIFOSequencer &)            = delete;
+    FIFOSequencer(const FIFOSequencer &&)           = delete;
+    FIFOSequencer& operator=(const FIFOSequencer&)  = delete;
+    FIFOSequencer& operator=(const FIFOSequencer&&) = delete;
 
 private:
     ClientRequestLFQueue *incomingRequest_ = nullptr;
 
-    std::string time;
+    std::string time_str_;
     Logger *logger_ = nullptr;
 
     struct RecvTimeClientRequest {
         Nanos recvTime = 0;
         MEClientRequest request;
 
+        // the rules about sort
         auto operator<(const RecvTimeClientRequest &rhs) const {
             return (recvTime < rhs.recvTime);
         }

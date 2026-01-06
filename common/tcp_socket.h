@@ -30,11 +30,23 @@ namespace Common {
 		auto sendAndRecv() noexcept -> bool ;
 
 		// write outgoing data to the send buffers
-		auto send(const void* data, size_t len) noexcept;
+		void send(const void* data, size_t len) noexcept;
 
-		auto getSocketFd() const -> int { return socket_fd; }
-		auto setSocketFd(int fd) -> void { socket_fd = fd; }
-		void setRecvback(std::function<void(TCPSocket* s, Nanos rx_time)> callback) { recv_callback = callback; }
+		auto getSocketFd() const -> int { 
+			return socket_fd; 
+		}
+		auto setSocketFd(int fd) -> void { 
+			socket_fd = fd; 
+		}
+		void setRecvback(std::function<void(TCPSocket* s, Nanos rx_time)> callback) { 
+			recv_callback = callback; 
+		}
+		auto getNextRcvValidIndex() const -> size_t { 
+			return nextRevVaildIndex_; 
+		}
+		auto getInboundData() const -> std::vector<uint8_t> { 
+			return inbound_data_; 
+		}
 
 		// Deleted default, copy & move constructors and assignment-operators.
 		TCPSocket(const TCPSocket &other) = delete;

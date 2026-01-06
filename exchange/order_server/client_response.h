@@ -36,15 +36,15 @@ namespace Exchange {
 
 #pragma pack(push, 1)
     struct MEClientResponse {
-        ClientResponseType type_ = ClientResponseType::INVALID;
-        ClientId client_id_ = ClientId_INVALID;
-        TickerId ticker_id_ = TickerId_INVALID;
-        OrderId client_order_id_ = OrderId_INVALID;
-        OrderId market_order_id_ = OrderId_INVALID;
-        Side side_ = Side::INVALID;
-        Price price_ = Price_INVALID;
-        Qty exec_qty_ = Qty_INVALID;
-        Qty leaves_qty_ = Qty_INVALID;
+        ClientResponseType type_      = ClientResponseType::INVALID;
+        ClientId client_id_           = ClientId_INVALID;
+        TickerId ticker_id_           = TickerId_INVALID;
+        OrderId client_order_id_      = OrderId_INVALID;
+        OrderId market_order_id_      = OrderId_INVALID;
+        Side side_                    = Side::INVALID;
+        Price price_                  = Price_INVALID;
+        Qty exec_qty_                 = Qty_INVALID;
+        Qty leaves_qty_               = Qty_INVALID;
 
         auto toString() const {
             std::ostringstream oss;

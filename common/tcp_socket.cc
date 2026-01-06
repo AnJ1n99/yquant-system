@@ -65,7 +65,7 @@ namespace Common {
 		return (readSize > 0);
 	}
 
-	auto TCPSocket::send(const void* data, size_t len) noexcept {
+	void TCPSocket::send(const void* data, size_t len) noexcept {
 		memcpy(outbound_data_.data() + nextSendVaildIndex_, data, len);
 		nextSendVaildIndex_ += len;
 	}	
