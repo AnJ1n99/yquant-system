@@ -19,7 +19,9 @@ namespace Common {
 
 	// Maximum number of clients supported by the system.
 	constexpr size_t ME_MAX_NUM_CLIENTS = 256;
-
+	
+	// max number of orders per trading clients
+	constexpr size_t ME_MAX_ORDER_IDS = 1024 * 1024;
 
 
   	typedef uint64_t OrderId;

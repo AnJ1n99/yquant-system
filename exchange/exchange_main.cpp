@@ -12,8 +12,9 @@
  */
 
 #include "../common/logging.h"
-#include "../exchange/order_server/client_request.h"
-#include "../exchange/order_server/client_response.h"
+#include "matcher/matching_engine.h"
+#include "order_manager/client_request.h"
+#include "order_manager/client_response.h"
 
 #include <csignal>
 
@@ -22,22 +23,22 @@ Common::Logger *logger = nullptr;
 
 /// 外部信号触发时优雅关闭服务器
 void signal_handler(int) {
-  using namespace std::literals::chrono_literals;
-  std::this_thread::sleep_for(10s);  // 等待10秒以确保资源释放
+  	using namespace std::literals::chrono_literals;
+  	std::this_thread::sleep_for(10s);  // 等待10秒以确保资源释放
 
   // 释放所有组件资源
-  delete logger;
-  logger = nullptr;
-  delete matching_engine;
-  matching_engine = nullptr;
-  delete market_data_publisher;
-  market_data_publisher = nullptr;
-  delete order_server;
-  order_server = nullptr;
+ 	delete logger;
+  	logger = nullptr;
+  	delete matching_engine;
+  	matching_engine = nullptr;
+  	delete market_data_publisher;
+  	market_data_publisher = nullptr;
+  	delete order_server;
+  	order_server = nullptr;
 
-  std::this_thread::sleep_for(10s);  // 等待释放完成
+  	std::this_thread::sleep_for(10s);  // 等待释放完成
 
-  exit(EXIT_SUCCESS);
+  	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char** argv) {
@@ -55,4 +56,19 @@ int main(int argc, char** argv) {
     Exchange::ClientResponseLFQueue client_responses(ME_MAX_CLIENT_UPDATES);
     Exchange::MEMarketUpdateLFQueue market_updates(ME_MAX_MARKET_UPDATES);
 
+	std::string time_str_;
+
+	// 启动匹配引擎
+
+	// config market data publisher
+
+	// start market data publisher
+
+	// config order server
+
+	// start order server
+
+	// main loop
+	while (true) {
+	}
 }

@@ -12,14 +12,14 @@ MatchingEngine::MatchingEngine(ClientRequestLFQueue *clientRequests,ClientRespon
     , logger("MatchingEngine.log") {
     // Initialize the matching engine with the provided queues
     for (size_t i = 0; i < ticker_order_book.size(); ++i) {
-        
+
     }
 }
 
 MatchingEngine::~MatchingEngine() {
     // Clean up resources if needed
     // The destructor should ensure proper cleanup of the matching engine
-    
+
 }
 
 void MatchingEngine::start() {
