@@ -86,16 +86,28 @@ namespace Common {
   	};
 
 	inline auto sideToString(Side side) -> std::string {
-    	switch (side) {
-      	case Side::BUY:
-        	return "BUY";
-      	case Side::SELL:
-        	return "SELL";
-      	case Side::INVALID:
-        	return "INVALID";
-      	case Side::MAX:
-        	return "MAX";
-    	}
-    	return "UNKNOWN";
-   	}
-};
+     	switch (side) {
+       	case Side::BUY:
+         	return "BUY";
+       	case Side::SELL:
+         	return "SELL";
+       	case Side::INVALID:
+         	return "INVALID";
+       	case Side::MAX:
+         	return "MAX";
+     	}
+     	return "UNKNOWN";
+    }
+
+    // 优先级 (通常使用纳秒时间戳实现价格-时间优先级)
+    typedef uint64_t Priority;
+    constexpr auto Priority_INVALID = std::numeric_limits<Priority>::max();
+
+    inline auto priorityToString(Priority priority) -> std::string {
+     	if (UNLIKELY(priority == Priority_INVALID)) {
+       		return "INVALID";
+     	}
+
+     	return std::to_string(priority);
+    }
+}
