@@ -105,31 +105,26 @@ void MatchingEngine::run() {
 }
 
 auto MatchingEngine::sendMarketUpdate(const MEMarketUpdate* update) noexcept {
-    auto next_write = outgoing_md_updates->getNextToWriteTo();
-    *next_write = *update;
-    outgoing_md_updates->updateWriteIndex();
-
     Common::getCurrentTimeStr(time_str_);
     logger.log("%:% %() % Sending market update: %\n",
               __FILE__, __LINE__, __FUNCTION__,
               time_str_,
               update->toString());
+    
+    auto next_write = outgoing_md_updates->getNextToWriteTo();
+    *next_write = *update;
+    outgoing_md_updates->updateWriteIndex();
+    TTT_MEASURE(T4t_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
 
 auto MatchingEngine::sendClientResponse(const MEClientResponse* response) noexcept {
+    Common::getCurrentTimeStr(time_str_);
+    logger.log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__, time_str_, response->toString());
     // 写入客户端响应队列
     auto next_write = outgoing_ogw_responses->getNextToWriteTo();
     *next_write = *response;
     outgoing_ogw_responses->updateWriteIndex();
-
-    // 记录日志
-    Common::getCurrentTimeStr(time_str_);
-    logger.log("%:% %() % Sent response type=%\n",
-              __FILE__, __LINE__, __FUNCTION__,
-              time_str_,
-              clientResponseTypeToString(response->type_));
+    TTT_MEASURE(T4_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
-
-
 
 } // namespace Exchange

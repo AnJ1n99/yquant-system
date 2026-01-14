@@ -52,7 +52,7 @@ namespace Exchange {
                 << " ["
                 << "type:"        << clientResponseTypeToString(type_)
                 << " client:"     << clientIdToString(client_id_)
-                << " ticker:"     << tickerIdToString(ticker_id_)
+                << " ticker:"     << symbolIdToString(ticker_id_)
                 << " coid:"       << orderIdToString(client_order_id_)
                 << " moid:"       << orderIdToString(market_order_id_)
                 << " side:"       << sideToString(side_)
