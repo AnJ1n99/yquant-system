@@ -11,7 +11,7 @@ namespace Common {
   	// Constants used across the ecosystem to represent upper bounds on various containers.
   	// Trading instruments / TickerIds from [0, ME_MAX_TICKERS].
 
-  	constexpr size_t ME_MAX_TICKERS = 8;
+  	constexpr size_t ME_MAX_SYMBOLS = 8;
 
   	// Maximum size of lock free queues used to transfer client requests, client responses and market updates between components.
   	constexpr size_t ME_MAX_CLIENT_UPDATES = 256 * 1024;
@@ -19,10 +19,12 @@ namespace Common {
 
 	// Maximum number of clients supported by the system.
 	constexpr size_t ME_MAX_NUM_CLIENTS = 256;
-	
+
 	// max number of orders per trading clients
 	constexpr size_t ME_MAX_ORDER_IDS = 1024 * 1024;
 
+	// Maximum price level depth in the order books.
+  	constexpr size_t ME_MAX_PRICE_LEVELS = 256;
 
   	typedef uint64_t OrderId;
  	constexpr auto OrderId_INVALID = std::numeric_limits<OrderId>::max();
@@ -35,15 +37,16 @@ namespace Common {
     	return std::to_string(order_id);
    	}
 
-   	typedef uint32_t TickerId;
-   	constexpr auto TickerId_INVALID = std::numeric_limits<TickerId>::max();
+	// 股票代码
+   	typedef uint32_t SymbolId;
+   	constexpr auto SymbolId_INVALID = std::numeric_limits<SymbolId>::max();
 
-  	inline auto tickerIdToString(TickerId ticker_id) -> std::string {
-    	if (UNLIKELY(ticker_id == TickerId_INVALID)) {
+  	inline auto symbolIdToString(SymbolId symbol_id) -> std::string {
+    	if (UNLIKELY(symbol_id == SymbolId_INVALID)) {
       		return "INVALID";
     	}
 
-    	return std::to_string(ticker_id);
+    	return std::to_string(symbol_id);
    	}
 
    	typedef uint32_t ClientId;

@@ -44,7 +44,7 @@ namespace Exchange {
 
        // 初始化示例 - 表示一个未初始化的订单结构
         ClientId clientId_   = ClientId_INVALID;    // 客户端
-        TickerId tickerId_   = TickerId_INVALID;    // 行情
+        SymbolId symbolId_   = SymbolId_INVALID;    // 股票id
         OrderId  orderId_    = OrderId_INVALID;     // 订单
         Side     side_       = Side::INVALID;       // 买卖
         Price    price_      = Price_INVALID;       // 价格
@@ -56,7 +56,7 @@ namespace Exchange {
                  << " ["
                  << "type:"    << clientRequestTypeToString(type_)
                  << " client:" << clientIdToString(clientId_)
-                 << " ticker:" << tickerIdToString(tickerId_)
+                 << " ticker:" << symbolIdToString(symbolId_)
                  << " oid:"    << orderIdToString(orderId_)
                  << " side:"   << sideToString(side_)
                  << " qty:"    << qtyToString(qty_)
