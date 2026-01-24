@@ -38,7 +38,7 @@ namespace Exchange {
     struct MEClientResponse {
         ClientResponseType type_      = ClientResponseType::INVALID;
         ClientId client_id_           = ClientId_INVALID;
-        SymbolId ticker_id_           = SymbolId_INVALID;
+        SymbolId symbol_id_           = SymbolId_INVALID;
         OrderId client_order_id_      = OrderId_INVALID;
         OrderId market_order_id_      = OrderId_INVALID;
         Side side_                    = Side::INVALID;
@@ -52,7 +52,7 @@ namespace Exchange {
                 << " ["
                 << "type:"        << clientResponseTypeToString(type_)
                 << " client:"     << clientIdToString(client_id_)
-                << " ticker:"     << symbolIdToString(ticker_id_)
+                << " symbol:"     << symbolIdToString(symbol_id_)
                 << " coid:"       << orderIdToString(client_order_id_)
                 << " moid:"       << orderIdToString(market_order_id_)
                 << " side:"       << sideToString(side_)

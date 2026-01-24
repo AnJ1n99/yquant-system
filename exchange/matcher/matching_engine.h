@@ -42,7 +42,7 @@ namespace Exchange {
     private:
         // 主运行循环
         void run();
-        // 股票代码 到 MEOrderBook 的哈希映射
+        // symbol 到 MEOrderBook 的哈希映射
         OrderBookHashMap symbol_order_book;
 
         // 无锁队列：

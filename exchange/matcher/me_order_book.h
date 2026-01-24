@@ -37,6 +37,18 @@ public:
     // 构造函数
     explicit MEOrderBook(SymbolId symbolId, MatchingEngine* engine, Logger* log);
 
+    // 析构函数
+    ~MEOrderBook();
+
+    // 添加订单
+    void add(ClientId clientId, OrderId orderId, SymbolId symbolId, Side side, Price price, Qty qty) noexcept;
+
+    // 取消订单
+    void cancel(ClientId clientId, OrderId orderId) noexcept;
+
+    // 转换为字符串表示
+    std::string toString(bool detailed, bool validityCheck) const;
+
     // 禁用默认构造函数、拷贝构造函数和赋值操作符
     MEOrderBook() = delete;
     MEOrderBook(const MEOrderBook&) = delete;
@@ -46,17 +58,40 @@ public:
     MEOrderBook(MEOrderBook&&) = delete;
     MEOrderBook& operator=(MEOrderBook&&) = delete;
 
-    // 析构函数
-    ~MEOrderBook();
+private:
+    // 生成新的市场订单ID
+    OrderId generateMarketOrderId() {
+        return nextMarketOrderId++;
+    }
 
-    // 添加订单
-    void add(ClientId clientId, OrderId orderId, SymbolId symbolId, Side side, Price price, Qty qty) noexcept;
+    size_t priceToIndex(Price price) const noexcept {
+        return static_cast<size_t>(price) % ME_MAX_PRICE_LEVELS;
+    }
 
-    // 取消订单
-    bool cancel(ClientId clientId, OrderId orderId) noexcept;
+    MEOrdersAtPrice* getOrdersAtPrice(Price price, Side side) const noexcept;
 
-    // 转换为字符串表示
-    std::string toString(bool detailed, bool validityCheck) const;
+    // 获取指定价格档位的下一个优先级
+    Priority getNextPriority(Price price, Side side) noexcept  {
+        const auto ordersAtPrice = getOrdersAtPrice(price, side);
+        if (ordersAtPrice == nullptr) {
+            return 1lu;
+        }
+        // 返回当前价格档位的最后一个订单的优先级 + 1   环形链表  firstMeOrder 是头节点，prev 是尾节点
+        return ordersAtPrice->firstMeOrder->prev->priority + 1;
+    }
+
+    void addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept;
+
+    void removeOrderAtPrice(Side side, Price price) noexcept;
+
+    void addOrder(MEOrder* order) noexcept;
+
+    // 尝试撮合新订单，返回剩余数量
+    Qty checkForMatch(ClientId clientId, OrderId clientOrderId, SymbolId symbolId,
+                      Side side, Price price, Qty qty, OrderId marketOrderId) noexcept;
+
+    // 主动订单与对手方被动订单进行撮合，返回主动订单剩余数量
+    Qty match(MEOrder* activeOrder) noexcept;
 
 private:
     // 交易标的代码
@@ -70,17 +105,19 @@ private:
     ClientOrderHashMap cidOidToOrder_;
 
     // 价格档位内存池，用于高效分配MEOrdersAtPrice对象
-    MemPool<MEOrder> ordersAtPricePool;
+    MemPool<MEOrdersAtPrice> ordersAtPricePool;
 
     // 指向最佳买卖价位的指针（市场深度顶部)
     // bids_by_price_ 指向最高买单价格档位
     // asks_by_price_ 指向最低卖单价格档位
-    MEOrdersAtPrice* bids_by_price_;  // 最佳买单价格档位指针
-    MEOrdersAtPrice* asks_by_price_;  // 最佳卖单价格档位指针
+    MEOrdersAtPrice* bids_by_price_ = nullptr;  // 最佳买单价格 档位 指针
+    MEOrdersAtPrice* asks_by_price_ = nullptr;  // 最佳卖单价格 档位 指针
 
-    // 从价格到订单集合的哈希映射，使用价格作为键
-    // 存储在特定价格的所有活跃订单
-    OrdersAtPriceHashMap price_orders_at_price_;
+    // 从价格到订单集合的哈希映射，买卖分离
+    // 买单价格档位哈希表
+    OrdersAtPriceHashMap bid_price_levels_;
+    // 卖单价格档位哈希表
+    OrdersAtPriceHashMap ask_price_levels_;
 
     // 订单内存池，用于高效分配MEOrder对象，避免频繁的堆分配/释放导致的碎片化
     MemPool<MEOrder> order_pool_;
@@ -97,9 +134,14 @@ private:
     std::string time_str_;
     // 日志记录器指针
     Logger* logger = nullptr;
-
-private:
 };
 
+// 使用数组来映射
 typedef std::array<MEOrderBook*, ME_MAX_SYMBOLS> OrderBookHashMap;
 }
+
+// 每一个symbol都有一个orderbook
+// orderbook 里面维护了所有的order
+// orderbook 里面维护了所有的price level
+// price level 里面维护了所有的order
+// order 里面维护了所有的order detail

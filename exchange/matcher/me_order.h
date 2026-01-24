@@ -58,13 +58,13 @@ public:
 public:
     MEOrdersAtPrice() = default;
 
-    MEOrdersAtPrice(Side side, Price price, MEOrder* first_order,
-                    MEOrdersAtPrice* nextEntry, MEOrdersAtPrice* prevEntry)
+    MEOrdersAtPrice(Side side, Price price, MEOrder* first_order,MEOrdersAtPrice* nextEntry, MEOrdersAtPrice* prevEntry)
         : side(side)
         , price(price)
         , firstMeOrder(first_order)
         , next(nextEntry)
-        , prev(prevEntry) {
+        , prev(prevEntry)
+        , hash_next(nullptr) {
     }
 
     auto toString() const -> std::string {
@@ -83,9 +83,12 @@ private:
     Price               price        = Price_INVALID;
     MEOrder*            firstMeOrder = nullptr; // dummy node
 
+    // 价格档位链表（按价格排序）
     MEOrdersAtPrice*    next         = nullptr;
     MEOrdersAtPrice*    prev         = nullptr;
-
+    
+    // 哈希碰撞链表（同一个哈希桶内的不同价格）
+    MEOrdersAtPrice*    hash_next    = nullptr;
 };
 
 typedef std::array<MEOrdersAtPrice *, ME_MAX_PRICE_LEVELS> OrdersAtPriceHashMap;
