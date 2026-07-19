@@ -24,9 +24,9 @@ public:
 private:
     void run();
 
-    MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
-    std::string multicastAddr_;
-    int port_ = 0;
+    [[maybe_unused]] MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
+    [[maybe_unused]] std::string multicastAddr_;
+    [[maybe_unused]] int port_ = 0;
     std::atomic<bool> run_{false};
     std::thread publisherThread_;
     Common::Logger logger_;

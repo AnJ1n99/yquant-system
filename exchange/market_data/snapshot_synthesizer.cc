@@ -21,7 +21,7 @@ void SnapshotSynthesizer::stop() {
     run_ = false;
 }
 
-void SnapshotSynthesizer::generateSnapshot(TickerId tickerId) {
+void SnapshotSynthesizer::generateSnapshot(SymbolId /*symbolId*/) {
     // Generate a snapshot for a specific ticker by reading the current state of the order book
     // Implementation will iterate through the order book and create snapshot updates
 }
@@ -31,7 +31,7 @@ void SnapshotSynthesizer::generateAllSnapshots() {
     // Implementation will iterate through all order books
 }
 
-void SnapshotSynthesizer::publishSnapshot(const std::vector<MEMarketUpdate>& snapshot) {
+void SnapshotSynthesizer::publishSnapshot(const std::vector<MEMarketUpdate>& /*snapshot*/) {
     // Publish the snapshot to the market updates queue
     // Implementation will add snapshot updates to the queue for distribution
 }

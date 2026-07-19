@@ -10,7 +10,7 @@ namespace Exchange {
 MatchingEngine::MatchingEngine (
     ClientRequestLFQueue *clientRequests,
     ClientResponseLFQueue *outgoingResponses,
-    MEMarketUpdateLFqueue *outgoingUpdates
+    MEMarketUpdateLFQueue *outgoingUpdates
 ) : incoming_requests(clientRequests), outgoing_ogw_responses(outgoingResponses), outgoing_md_updates(outgoingUpdates), logger("MatchingEngine.log")
 {
     // Initialize the matching engine with the provided queues
@@ -48,7 +48,7 @@ void MatchingEngine::stop() {
     // Stop the matching engine processing and perform cleanup if needed
 }
 
-auto MatchingEngine::processClientRequest(const MEClientRequest* client_request) noexcept {
+void MatchingEngine::processClientRequest(const MEClientRequest* client_request) noexcept {
     // 获取对应symbol的订单簿
     auto* order_book = symbol_order_book[client_request->symbolId_];
     // 根据请求类型处理
@@ -104,7 +104,7 @@ void MatchingEngine::run() {
     logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, "MatchingEngine thread stopped");
 }
 
-auto MatchingEngine::sendMarketUpdate(const MEMarketUpdate* update) noexcept {
+void MatchingEngine::sendMarketUpdate(const MEMarketUpdate* update) noexcept {
     Common::getCurrentTimeStr(time_str_);
     logger.log("%:% %() % Sending market update: %\n",
               __FILE__, __LINE__, __FUNCTION__,
@@ -117,7 +117,7 @@ auto MatchingEngine::sendMarketUpdate(const MEMarketUpdate* update) noexcept {
     TTT_MEASURE(T4t_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
 
-auto MatchingEngine::sendClientResponse(const MEClientResponse* response) noexcept {
+void MatchingEngine::sendClientResponse(const MEClientResponse* response) noexcept {
     Common::getCurrentTimeStr(time_str_);
     logger.log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__, time_str_, response->toString());
     // 写入客户端响应队列

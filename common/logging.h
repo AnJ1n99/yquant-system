@@ -105,7 +105,7 @@ namespace Common {
 
             file_.open(fileName);
             ASSERT(file_.is_open(), "Could not open log file:" + fileName);
-            loggerThread_ = creatAndStartThread(-1, "Common/Logger" + fileName_, [this](){ flushQueue();});
+            loggerThread_ = createAndStartThread(-1, "Common/Logger" + fileName_, [this](){ flushQueue();});
             ASSERT(loggerThread_ != nullptr, "Failed to start Logger thread.");
         }
 

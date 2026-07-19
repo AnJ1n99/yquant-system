@@ -3,20 +3,20 @@
 
 namespace Exchange {
 
-    auto MEOrder::toString() const -> std::string{
+    auto MEOrder::toString() const -> std::string {
         std::ostringstream oss;
         oss << "MEOrder"
             << " ["
-            << "orderId:" << orderIdToString(order_id)
-            << " clientId:" << clientIdToString(client_id)
-            << " clientOrderId:" << orderIdToString(client_order_id)
-            << " marketOrderId:" << orderIdToString(market_order_id)
-            << " side:" << sideToString(side)
-            << " price:" << priceToString(price)
-            << " qty:" << qtyToString(qty_remain)
-            << " priority:" << priorityToString(priority)
+            << "clientId:"      << clientIdToString(client_id)
+            << " clientOId:"    << orderIdToString(client_order_id)
+            << " marketOId:"    << orderIdToString(market_order_id)
+            << " symbolId:"     << symbolIdToString(symbol_id)
+            << " side:"         << sideToString(side)
+            << " price:"        << priceToString(price)
+            << " qty:"          << qtyToString(qty_remain)
+            << " priority:"     << priorityToString(priority)
             << "]";
         return oss.str();
-    }    
+    }
 
 }

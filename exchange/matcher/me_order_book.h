@@ -16,6 +16,7 @@
 #pragma once
 
 #include "me_order.h"
+#include "me_side_book.h"
 #include "../../common/mem_pool.h"
 #include "../../common/types.h"
 #include "../../common/logging.h"
@@ -23,8 +24,6 @@
 #include "../market_data/market_update.h"
 
 #include <array>
-#include <unordered_map>
-#include <vector>
 #include <string>
 
 namespace Exchange {
@@ -34,106 +33,87 @@ class MatchingEngine;
 
 class MEOrderBook final {
 public:
-    // 构造函数
-    explicit MEOrderBook(SymbolId symbolId, MatchingEngine* engine, Logger* log);
+	// 构造函数
+	explicit MEOrderBook(SymbolId symbolId, MatchingEngine* engine, Logger* log);
 
-    // 析构函数
-    ~MEOrderBook();
+	// 析构函数
+	~MEOrderBook();
 
-    // 添加订单
-    void add(ClientId clientId, OrderId orderId, SymbolId symbolId, Side side, Price price, Qty qty) noexcept;
+	// 添加订单
+	void add(ClientId clientId, OrderId orderId, SymbolId symbolId, Side side, Price price, Qty qty) noexcept;
 
-    // 取消订单
-    void cancel(ClientId clientId, OrderId orderId) noexcept;
+	// 取消订单
+	void cancel(ClientId clientId, OrderId orderId) noexcept;
 
-    // 转换为字符串表示
-    std::string toString(bool detailed, bool validityCheck) const;
+	// 转换为字符串表示
+	std::string toString(bool detailed, bool validityCheck) const;
 
-    // 禁用默认构造函数、拷贝构造函数和赋值操作符
-    MEOrderBook() = delete;
-    MEOrderBook(const MEOrderBook&) = delete;
-    MEOrderBook& operator=(const MEOrderBook&) = delete;
+	// 供 SnapshotSynthesizer 使用的访问器
+	const MeSideBook& getBidBook() const noexcept { return bid_book_; }
+	const MeSideBook& getAskBook() const noexcept { return ask_book_; }
 
-    // 禁用移动构造函数和移动赋值操作符
-    MEOrderBook(MEOrderBook&&) = delete;
-    MEOrderBook& operator=(MEOrderBook&&) = delete;
+	// 禁用默认构造函数、拷贝构造函数和赋值操作符
+	MEOrderBook() = delete;
+	MEOrderBook(const MEOrderBook&) = delete;
+	MEOrderBook& operator=(const MEOrderBook&) = delete;
 
-private:
-    // 生成新的市场订单ID
-    OrderId generateMarketOrderId() {
-        return nextMarketOrderId++;
-    }
-
-    size_t priceToIndex(Price price) const noexcept {
-        return static_cast<size_t>(price) % ME_MAX_PRICE_LEVELS;
-    }
-
-    MEOrdersAtPrice* getOrdersAtPrice(Price price, Side side) const noexcept;
-
-    // 获取指定价格档位的下一个优先级
-    Priority getNextPriority(Price price, Side side) noexcept  {
-        const auto ordersAtPrice = getOrdersAtPrice(price, side);
-        if (ordersAtPrice == nullptr) {
-            return 1lu;
-        }
-        // 返回当前价格档位的最后一个订单的优先级 + 1   环形链表  firstMeOrder 是头节点，prev 是尾节点
-        return ordersAtPrice->firstMeOrder->prev->priority + 1;
-    }
-
-    void addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept;
-
-    void removeOrderAtPrice(Side side, Price price) noexcept;
-
-    void addOrder(MEOrder* order) noexcept;
-
-    // 尝试撮合新订单，返回剩余数量
-    Qty checkForMatch(ClientId clientId, OrderId clientOrderId, SymbolId symbolId,
-                      Side side, Price price, Qty qty, OrderId marketOrderId) noexcept;
-
-    // 主动订单与对手方被动订单进行撮合，返回主动订单剩余数量
-    Qty match(MEOrder* activeOrder) noexcept;
+	// 禁用移动构造函数和移动赋值操作符
+	MEOrderBook(MEOrderBook&&) = delete;
+	MEOrderBook& operator=(MEOrderBook&&) = delete;
 
 private:
-    // 交易标的代码
-    SymbolId symbol;
+	// 生成新的市场订单ID
+	OrderId generateMarketOrderId() {
+		return nextMarketOrderId++;
+	}
 
-    // 匹配引擎指针
-    MatchingEngine *matchingEngine = nullptr;
+	// 获取对应侧的 book
+	MeSideBook& getSideBook(Side side) noexcept {
+		return (side == Side::BUY) ? bid_book_ : ask_book_;
+	}
 
-    // 用于客户端和订单ID查找的两级哈希映射（用于cancel()操作）
-    // 键为客户端ID，值为另一个映射，该映射的键为订单ID，值为订单指针
-    ClientOrderHashMap cidOidToOrder_;
+	// 获取对手方的 book
+	MeSideBook& getOppositeSideBook(Side side) noexcept {
+		return (side == Side::BUY) ? ask_book_ : bid_book_;
+	}
 
-    // 价格档位内存池，用于高效分配MEOrdersAtPrice对象
-    MemPool<MEOrdersAtPrice> ordersAtPricePool;
+	// 尝试撮合新订单，返回剩余数量
+	Qty checkForMatch(ClientId clientId, OrderId clientOrderId, SymbolId symbolId,
+	                  Side side, Price price, Qty qty, OrderId marketOrderId) noexcept;
 
-    // 指向最佳买卖价位的指针（市场深度顶部)
-    // bids_by_price_ 指向最高买单价格档位
-    // asks_by_price_ 指向最低卖单价格档位
-    MEOrdersAtPrice* bids_by_price_ = nullptr;  // 最佳买单价格 档位 指针
-    MEOrdersAtPrice* asks_by_price_ = nullptr;  // 最佳卖单价格 档位 指针
+	// 主动订单与对手方被动订单进行撮合，返回主动订单剩余数量
+	Qty match(MEOrder* activeOrder) noexcept;
 
-    // 从价格到订单集合的哈希映射，买卖分离
-    // 买单价格档位哈希表
-    OrdersAtPriceHashMap bid_price_levels_;
-    // 卖单价格档位哈希表
-    OrdersAtPriceHashMap ask_price_levels_;
+private:
+	// 交易标的代码
+	SymbolId symbol;
 
-    // 订单内存池，用于高效分配MEOrder对象，避免频繁的堆分配/释放导致的碎片化
-    MemPool<MEOrder> order_pool_;
+	// 匹配引擎指针
+	MatchingEngine *matchingEngine = nullptr;
 
-    // 客户端响应对象
-    MEClientResponse clientResponse;
-    // 市场更新对象
-    MEMarketUpdate marketUpdate;
+	// 用于客户端和订单ID查找的两级哈希映射（用于cancel()操作）
+	ClientOrderHashMap cidOidToOrder_;
 
-    // 下一个市场订单ID，用于生成唯一的订单编号
-    OrderId nextMarketOrderId = 1;
+	// 共享内存池
+	MemPool<MEOrdersAtPrice> ordersAtPricePool;
+	MemPool<MEOrder> order_pool_;
 
-    // 时间字符串缓存
-    std::string time_str_;
-    // 日志记录器指针
-    Logger* logger = nullptr;
+	// 买卖双侧独立 Book
+	MeSideBook bid_book_;
+	MeSideBook ask_book_;
+
+	// 客户端响应对象
+	MEClientResponse clientResponse;
+	// 市场更新对象
+	MEMarketUpdate marketUpdate;
+
+	// 下一个市场订单ID，用于生成唯一的订单编号
+	OrderId nextMarketOrderId = 1;
+
+	// 时间字符串缓存
+	std::string time_str_;
+	// 日志记录器指针
+	Logger* logger = nullptr;
 };
 
 // 使用数组来映射

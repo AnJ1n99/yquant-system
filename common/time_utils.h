@@ -45,7 +45,7 @@ namespace Common {
 	    // 格式: "HH:MM:SS.nnnnnnnnn" = 21 字符 (包括 null terminator 需要 22)
 	    timeStr.resize(21);
 		// c++17以上返回无 const 版本
-	    std::snprintf(timeStr.data(), 22, "%02d:%02d:%02d.%09ld",
+	    std::snprintf(timeStr.data(), 22, "%02d:%02d:%02d.%09lld",
 	        tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec, nanos);
 	}
 }

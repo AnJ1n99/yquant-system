@@ -37,7 +37,7 @@ public:
         if (pendingSize >= ME_MAX_PENDING_REQUESTS) {
             FATAL("To many pending requests ");
         }                                         // this is a right value, so we use the std::move
-        pendingClientRequests.at(pendingSize++) = std::move(RecvTimeClientRequest{rxTime, request});
+        pendingClientRequests.at(pendingSize++) = RecvTimeClientRequest{rxTime, request};
     }
 
     // 接收到一批请求后，按接收时间排序，并将它们写入无锁队列供后续处理
@@ -81,9 +81,8 @@ private:
         Nanos recvTime = 0;
         MEClientRequest request;
 
-        // the rules about sort
-        auto operator<(const RecvTimeClientRequest &rhs) const {
-            return (recvTime < rhs.recvTime);
+        bool operator<(const RecvTimeClientRequest& rhs) const noexcept {
+            return recvTime < rhs.recvTime;
         }
     };
 

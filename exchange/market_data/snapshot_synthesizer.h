@@ -18,14 +18,14 @@ public:
     void start();
     void stop();
 
-    void generateSnapshot(TickerId tickerId);
+    void generateSnapshot(SymbolId symbolId);
     void generateAllSnapshots();
 
 private:
     void publishSnapshot(const std::vector<MEMarketUpdate>& snapshot);
 
-    OrderBookHashMap* tickerOrderBook_ = nullptr;
-    MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
+    [[maybe_unused]] OrderBookHashMap* tickerOrderBook_ = nullptr;
+    [[maybe_unused]] MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
     std::atomic<bool> run_{false};
     std::thread snapshotThread_;
     Common::Logger logger_;

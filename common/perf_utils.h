@@ -8,11 +8,21 @@ namespace Common {
 		开销：每次测量通常需要20-30个CPU周期
 		单位转换：使用CPU频率（2.60 GHz）将周期转换为纳秒 -> NanoSec = rdtsc_cycles / CPU_FREQ
 	*/
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
 	inline auto rdtsc() {
 		unsigned int lo, hi;
 		__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
 		return ((uint64_t)hi << 32) | lo;
 	}
+#elif defined(__aarch64__)
+	inline auto rdtsc() {
+		uint64_t val;
+		__asm__ volatile("mrs %0, cntvct_el0" : "=r"(val));
+		return val;
+	}
+#else
+	inline auto rdtsc() { return static_cast<uint64_t>(0); }
+#endif
 
 	// 使用rdtsc（）启动延迟测量。在局部作用域中创建一个名为tga的变量。
 	#define START_MEASURE(TAG) const auto TAG = Common::rdtsc();

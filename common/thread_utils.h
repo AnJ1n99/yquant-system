@@ -18,12 +18,15 @@ namespace Common {
 
     // 将当前线程绑定到指定 CPU 核心的内联函数
     inline auto setThreadCore(int core_id) noexcept {
+#ifdef __linux__
         cpu_set_t cpuset;
-
         CPU_ZERO(&cpuset);
         CPU_SET(core_id, &cpuset);
-
         return (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) == 0);
+#else
+        (void)core_id;
+        return true; // CPU affinity not supported on this platform
+#endif
     }
 
     //creates a new thread with CPU affinity and name assignment

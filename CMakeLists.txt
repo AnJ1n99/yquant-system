@@ -31,6 +31,7 @@ include_directories(
 
 # 添加源文件目录
 add_subdirectory(common)
+add_subdirectory(exchange)
 
 # 主程序
 add_executable(yquant_server main.cpp)
@@ -40,5 +41,5 @@ target_link_libraries(yquant_server PRIVATE common)
 option(BUILD_TESTS "Build tests" OFF)
 if(BUILD_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    add_subdirectory(test)
 endif()

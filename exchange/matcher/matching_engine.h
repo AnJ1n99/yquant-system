@@ -9,7 +9,6 @@
 #include "../../common/logging.h"
 #include "me_order_book.h"
 #include "../market_data/market_update.h"
-#include <immintrin.h>
 #include <streambuf>
 
 namespace Exchange {
@@ -18,7 +17,7 @@ namespace Exchange {
         MatchingEngine (
             ClientRequestLFQueue  *clientRequests,
             ClientResponseLFQueue *outgoingResponses,
-            MEMarketUpdateLFqueue *outgoingUpdates
+            MEMarketUpdateLFQueue *outgoingUpdates
         );
 
         ~MatchingEngine();
@@ -27,11 +26,11 @@ namespace Exchange {
         void stop();
 
         // 处理从无锁队列读取的客户端请求（由OrderManager发送）
-        auto processClientRequest(const MEClientRequest* clientRequest) noexcept;
+        void processClientRequest(const MEClientRequest* clientRequest) noexcept;
         // 将客户端响应写入无锁队列，供OrderManager消费
-        auto sendClientResponse(const MEClientResponse* response) noexcept;
+        void sendClientResponse(const MEClientResponse* response) noexcept;
         // 将市场更新写入无锁队列，供MarketDataPublisher消费
-        auto sendMarketUpdate(const MEMarketUpdate* update) noexcept;
+        void sendMarketUpdate(const MEMarketUpdate* update) noexcept;
 
         // 禁用拷贝构造函数、移动构造函数、拷贝赋值操作符和移动赋值操作符
         MatchingEngine() = delete;
@@ -52,7 +51,7 @@ namespace Exchange {
 
         ClientRequestLFQueue *incoming_requests       = nullptr;
         ClientResponseLFQueue *outgoing_ogw_responses = nullptr;
-        MEMarketUpdateLFqueue *outgoing_md_updates    = nullptr;
+        MEMarketUpdateLFQueue *outgoing_md_updates    = nullptr;
 
         volatile bool running_ = false;
 

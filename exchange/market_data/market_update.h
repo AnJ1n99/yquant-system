@@ -96,6 +96,6 @@ struct MDPMarketUpdate {
 };
 #pragma pack(pop)
 // MDP和ME通信的中间件 
-typedef Common::LFQueue<Exchange::MEMarketUpdate> MEMarketUpdateLFqueue;
-typedef Common::LFQueue<Exchange::MDPMarketUpdate> MDPMarketUpdateLFqueue;
+typedef Common::LFQueue<Exchange::MEMarketUpdate> MEMarketUpdateLFQueue;
+typedef Common::LFQueue<Exchange::MDPMarketUpdate> MDPMarketUpdateLFQueue;
 } // namespace Exchange

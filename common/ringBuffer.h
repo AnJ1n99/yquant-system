@@ -2,9 +2,16 @@
 
 #include <atomic>
 #include <iostream>
-#include <immintrin.h>
-#include <stdatomic.h>
 #include <vector>
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+  #include <immintrin.h>
+  #define CPU_PAUSE() _mm_pause()
+#elif defined(__aarch64__) || defined(__arm__)
+  #define CPU_PAUSE() __asm__ volatile("yield" ::: "memory")
+#else
+  #define CPU_PAUSE() ((void)0)
+#endif
 
 #include "macros.h"
 
@@ -21,11 +28,11 @@ namespace Common {
             capacity_(store_.size()) {
         }
 
-        auto tryGetNextToWriteTo() noexcept {
+        T* tryGetNextToWriteTo() noexcept {
             auto currentWrite = nextWriteIndex.load(std::memory_order_relaxed);
             auto currentRead = nextReadIndex.load(std::memory_order_acquire);
 
-            if (UNLIKELY(((currentWrite + 1) & mask_)) == (currentRead & mask_)) {
+            if (UNLIKELY(((currentWrite + 1) & mask_) == (currentRead & mask_))) {
                 return nullptr;
             }
 
@@ -39,7 +46,7 @@ namespace Common {
                 if (LIKELY(slot != nullptr)) {
                     return slot;
                 }
-                _mm_pause();
+                CPU_PAUSE();
             }
         }
 
@@ -106,8 +113,8 @@ namespace Common {
 
     private:
         std::vector<T> store_{};    // ? 是否需要对齐，分配内存呢？
-        const std::size_t capacity_{};
         const std::size_t mask_{};
+        const std::size_t capacity_{};
         // 防止伪共享
         alignas(64) std::atomic<std::size_t> nextWriteIndex {0};
         alignas(64) std::atomic<std::size_t> nextReadIndex {0};
