@@ -8,7 +8,6 @@ Release/
 .vscode/
 .idea/
 *.iml
-CLAUDE.md
 .cursor/
 
 # OS
