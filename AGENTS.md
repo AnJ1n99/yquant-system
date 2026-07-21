@@ -28,6 +28,7 @@ cmake -S . -B build/dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF
   - `common/` or CMake files → both `yquant_server` and `libexchange`
   - Unclear boundary → both targets
   - Build: `cmake --build build/dev --target <targets> --parallel`
+- Do not add or remove `-Werror` in unrelated changes (per-target warning flags live in CMake).
 
 ### Platform authority
 
@@ -37,13 +38,6 @@ cmake -S . -B build/dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF
   - `exchange/order_manager/order_manager.cc` is excluded (Linux epoll)
   - A successful macOS build does not validate those sources
 
-### Warning policy
-
-- All compiled targets use `-Wall -Wextra -Wpedantic`.
-- `libexchange` additionally uses `-Werror`; its compiler warnings fail the build.
-- `yquant_server` and the Linux `common` target do not currently use `-Werror`.
-- Do not broaden or remove `-Werror` as part of an unrelated change.
-- clang-tidy remains advisory because `.clang-tidy` sets `WarningsAsErrors: ''`; compiler errors and tool failures still make `scripts/tidy.sh` fail.
 
 ## Architecture
 
@@ -124,16 +118,6 @@ Then:
 - Overrides: `BUILD_DIR=build/tidy` and `CLANG_TIDY=/path/to/clang-tidy`
 - Findings are advisory and need human review; the script never applies automatic fixes.
 
-### When verifying changes
-
-1. Format/check the paths you changed (**Formatting**).
-2. Run tidy for non-trivial logic, API, or ownership changes (**clang-tidy**).
-3. Build the smallest applicable target (**Build**).
-4. For platform-specific code, treat Linux as authoritative (**Build → Platform authority**).
-
 ## Git Blame
 
-- `.git-blame-ignore-revs` contains designated repository-wide mechanical style revisions, using full 40-character commit hashes.
-- Configure it locally with `git config blame.ignoreRevsFile .git-blame-ignore-revs` when desired.
-- A listed revision may include mechanical namespace or naming normalization only when its commit message describes that work truthfully; never list a commit with behavioral changes.
-- Record the baseline only after its commit exists; never use a placeholder hash.
+- Mechanical style commits may be listed in `.git-blame-ignore-revs` (full hashes only; no behavioral changes); enable with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
