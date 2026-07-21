@@ -1,0 +1,8 @@
+# Google C++ style, pinned to clang-format 20.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+
+# Do not infer a different pointer style from surrounding legacy code.
+DerivePointerAlignment: false
+PointerAlignment: Left

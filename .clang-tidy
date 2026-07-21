@@ -1,0 +1,56 @@
+# Conservative clang-tidy 20 checks. Diagnostics are advisory.
+Checks: >
+  -*,
+  clang-diagnostic-*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.*,
+  clang-analyzer-unix.*,
+  bugprone-assert-side-effect,
+  bugprone-dangling-handle,
+  bugprone-exception-escape,
+  bugprone-infinite-loop,
+  bugprone-multiple-statement-macro,
+  bugprone-narrowing-conversions,
+  bugprone-sizeof-container,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-enum-usage,
+  bugprone-suspicious-memory-comparison,
+  bugprone-suspicious-memset-usage,
+  bugprone-suspicious-realloc-usage,
+  bugprone-suspicious-semicolon,
+  bugprone-swapped-arguments,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  performance-for-range-copy,
+  performance-inefficient-algorithm,
+  performance-inefficient-string-concatenation,
+  performance-inefficient-vector-operation,
+  performance-move-const-arg,
+  performance-move-constructor-init,
+  performance-no-int-to-ptr,
+  performance-unnecessary-copy-initialization,
+  performance-unnecessary-value-param,
+  portability-std-allocator-const,
+  portability-template-virtual-member-function,
+  google-build-using-namespace,
+  google-explicit-constructor,
+  google-global-names-in-headers,
+  google-readability-braces-around-statements,
+  google-readability-casting,
+  google-readability-namespace-comments,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-using
+
+# Keep findings visible without turning them into build-stopping errors.
+# readability-identifier-naming is intentionally disabled; legacy naming is
+# migrated incrementally during intentional code changes.
+WarningsAsErrors: ''
+HeaderFilterRegex: '(^|.*/)(common|exchange|trading)/.*'
+SystemHeaders: false
+FormatStyle: file
+
+CheckOptions:
+  - key: google-readability-braces-around-statements.ShortStatementLines
+    value: '0'

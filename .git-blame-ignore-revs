@@ -1,0 +1,3 @@
+# Repository-wide mechanical style revisions, one full 40-character hash per line.
+# Add the LLVM 20 Google formatting and namespace-normalization baseline after
+# that commit is created.

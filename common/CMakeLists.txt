@@ -1,17 +1,29 @@
-# Shared utilities: headers + network socket implementations.
+# Shared utilities: headers + Linux network socket implementations.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(common STATIC
+        mcast_socket.cpp
+        tcp_server.cc
+        tcp_socket.cc
+    )
+    set(COMMON_USAGE_SCOPE PUBLIC)
+    target_compile_options(common PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+else()
+    # Non-Linux development builds expose portable headers only. The network
+    # implementations depend on Linux epoll and socket behavior.
+    add_library(common INTERFACE)
+    set(COMMON_USAGE_SCOPE INTERFACE)
+endif()
 
-add_library(common STATIC
-    mcast_socket.cpp
-    tcp_server.cc
-    tcp_socket.cc
-)
-
-target_include_directories(common PUBLIC
+target_include_directories(common ${COMMON_USAGE_SCOPE}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Public headers for IDE / tooling visibility (not separate TUs).
-target_sources(common PUBLIC
+target_sources(common ${COMMON_USAGE_SCOPE}
     ${CMAKE_CURRENT_SOURCE_DIR}/logging.h
     ${CMAKE_CURRENT_SOURCE_DIR}/macros.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mcast_socket.h
@@ -26,9 +38,4 @@ target_sources(common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/types.h
 )
 
-target_compile_features(common PUBLIC cxx_std_20)
-target_compile_options(common PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
+target_compile_features(common ${COMMON_USAGE_SCOPE} cxx_std_20)
