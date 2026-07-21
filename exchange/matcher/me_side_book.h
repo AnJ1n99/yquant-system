@@ -3,48 +3,49 @@
 // MEOrderBook 持有两个 MeSideBook 实例（bid_book_ 和 ask_book_）
 #pragma once
 
-#include "me_order.h"
+#include <cstddef>
+
 #include "../../common/mem_pool.h"
 #include "../../common/types.h"
-
-using namespace Common;
+#include "me_order.h"
 
 namespace Exchange {
 
 class MeSideBook {
-	friend class MEOrderBook;
-public:
-	explicit MeSideBook(Side side, MemPool<MEOrder>* orderPool,
-	                    MemPool<MEOrdersAtPrice>* pricePool);
+  friend class MEOrderBook;
 
-	~MeSideBook();
+ public:
+  explicit MeSideBook(Common::Side side, Common::MemPool<MEOrder>* orderPool,
+                      Common::MemPool<MEOrdersAtPrice>* pricePool);
 
-	// 只读访问器
-	MEOrdersAtPrice* getBestPrice() const noexcept { return best_price_; }
-	MEOrdersAtPrice* getOrdersAtPrice(Price price) const noexcept;
-	Priority getNextPriority(Price price) const noexcept;
-	bool isEmpty() const noexcept { return best_price_ == nullptr; }
+  ~MeSideBook();
 
-	// 修改操作
-	void addOrder(MEOrder* order) noexcept;
-	void removeOrder(MEOrder* order) noexcept;
+  // 只读访问器
+  MEOrdersAtPrice* getBestPrice() const noexcept { return best_price_; }
+  MEOrdersAtPrice* getOrdersAtPrice(Common::Price price) const noexcept;
+  Common::Priority getNextPriority(Common::Price price) const noexcept;
+  bool isEmpty() const noexcept { return best_price_ == nullptr; }
 
-	// 禁用拷贝和移动
-	MeSideBook(const MeSideBook&) = delete;
-	MeSideBook& operator=(const MeSideBook&) = delete;
-	MeSideBook(MeSideBook&&) = delete;
-	MeSideBook& operator=(MeSideBook&&) = delete;
+  // 修改操作
+  void addOrder(MEOrder* order) noexcept;
+  void removeOrder(MEOrder* order) noexcept;
 
-private:
-	void addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept;
-	void removeOrderAtPrice(Price price) noexcept;
-	size_t priceToIndex(Price price) const noexcept;
+  // 禁用拷贝和移动
+  MeSideBook(const MeSideBook&) = delete;
+  MeSideBook& operator=(const MeSideBook&) = delete;
+  MeSideBook(MeSideBook&&) = delete;
+  MeSideBook& operator=(MeSideBook&&) = delete;
 
-	Side side_;
-	MEOrdersAtPrice* best_price_ = nullptr;
-	OrdersAtPriceHashMap price_levels_;
-	MemPool<MEOrder>* order_pool_;
-	MemPool<MEOrdersAtPrice>* price_pool_;
+ private:
+  void addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept;
+  void removeOrderAtPrice(Common::Price price) noexcept;
+  std::size_t priceToIndex(Common::Price price) const noexcept;
+
+  Common::Side side_;
+  MEOrdersAtPrice* best_price_ = nullptr;
+  OrdersAtPriceHashMap price_levels_;
+  Common::MemPool<MEOrder>* order_pool_;
+  Common::MemPool<MEOrdersAtPrice>* price_pool_;
 };
 
-} // namespace Exchange
+}  // namespace Exchange
