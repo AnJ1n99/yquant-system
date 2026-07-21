@@ -29,5 +29,5 @@ compile_commands.json
 cmake-build-debug/
 cmake-build-release/
 
-# Testing
-test/
+# Local-only scratch entry point (not part of the library build)
+main.cpp

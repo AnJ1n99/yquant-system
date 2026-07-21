@@ -32,13 +32,9 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/common
 )
 
-# 添加源文件目录
+# Libraries. Application entry points live outside this tree (or local main.cpp).
 add_subdirectory(common)
 add_subdirectory(exchange)
-
-# 主程序
-add_executable(yquant_server main.cpp)
-target_link_libraries(yquant_server PRIVATE common)
 
 # 测试选项
 option(BUILD_TESTS "Build tests" OFF)

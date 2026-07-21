@@ -14,8 +14,8 @@ Usage:
   scripts/format.sh --write paths...
   scripts/format.sh --write --all
 
-Only tracked or unignored C/C++ files under common/, exchange/, trading/, and
-main.cpp are eligible. Writing always requires an explicit --write flag.
+Only tracked or unignored C/C++ files under common/, exchange/, and trading/
+are eligible. Writing always requires an explicit --write flag.
 EOF
 }
 
@@ -83,7 +83,7 @@ is_cxx_source() {
 
 is_project_path() {
   case "$1" in
-    main.cpp|common|common/*|exchange|exchange/*|trading|trading/*) return 0 ;;
+    common|common/*|exchange|exchange/*|trading|trading/*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -209,7 +209,7 @@ if ((ALL)); then
   while IFS= read -r -d '' file; do
     append_file "$file"
   done < <(git ls-files -co --exclude-standard -z -- \
-    common exchange trading main.cpp)
+    common exchange trading)
 else
   for path in "${PATHS[@]+"${PATHS[@]}"}"; do
     collect_path "$path"
@@ -220,7 +220,7 @@ fi
 
 CLANG_FORMAT_BIN="$(resolve_clang_format)"
 CLANG_FORMAT_VERSION="$(require_llvm_20 "$CLANG_FORMAT_BIN")"
-"$CLANG_FORMAT_BIN" --style=file --assume-filename="$ROOT/main.cpp" \
+"$CLANG_FORMAT_BIN" --style=file --assume-filename="$ROOT/common/types.h" \
   --dump-config >/dev/null || die 'failed to parse .clang-format'
 
 printf 'Using: %s (%s)\n' "$CLANG_FORMAT_BIN" "$CLANG_FORMAT_VERSION"

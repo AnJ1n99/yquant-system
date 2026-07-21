@@ -23,11 +23,12 @@ cmake -S . -B build/dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF
 
 - Out-of-source builds only; use separate build directories for concurrent builds.
 - Smallest applicable verification target:
-  - `main.cpp` → `yquant_server`
   - `exchange/` → `libexchange`
-  - `common/` or CMake files → both `yquant_server` and `libexchange`
-  - Unclear boundary → both targets
+  - `common/` → `common`
+  - Root CMake / both libraries → `common` and `libexchange`
+  - Unclear boundary → both library targets
   - Build: `cmake --build build/dev --target <targets> --parallel`
+- `main.cpp` is local-only (gitignored); it is not a CMake target.
 - Do not add or remove `-Werror` in unrelated changes (per-target warning flags live in CMake).
 
 ### Platform authority
