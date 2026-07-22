@@ -7,7 +7,7 @@
 #include "../../common/ringBuffer.h"
 #include "../../common/types.h"
 
-namespace Exchange {
+namespace exchange {
 enum class ClientRequestType : uint8_t {
   INVAILD = 0,
   NEW = 1,
@@ -38,46 +38,47 @@ inline std::string clientRequestTypeToString(ClientRequestType type) {
 // - 减少内存占用
 // - 提高数据序列化/反序列化的性能
 // - 确保跨进程/网络传输的数据格式一致性
-struct MEClientRequest {  // 实际的客户端请求
+struct MatchingEngineClientRequest {  // 实际的客户端请求
   ClientRequestType type_ = ClientRequestType::INVAILD;
 
   // 初始化示例 - 表示一个未初始化的订单结构
-  Common::ClientId clientId_ = Common::ClientId_INVALID;  // 客户端
-  Common::SymbolId symbolId_ = Common::SymbolId_INVALID;  // 股票id
-  Common::OrderId orderId_ = Common::OrderId_INVALID;     // 订单
-  Common::Side side_ = Common::Side::INVALID;             // 买卖
-  Common::Price price_ = Common::Price_INVALID;           // 价格
-  Common::Qty qty_ = Common::Qty_INVALID;                 // 数量
+  common::ClientId clientId_ = common::ClientId_INVALID;  // 客户端
+  common::SymbolId symbolId_ = common::SymbolId_INVALID;  // 股票id
+  common::OrderId orderId_ = common::OrderId_INVALID;     // 订单
+  common::Side side_ = common::Side::INVALID;             // 买卖
+  common::Price price_ = common::Price_INVALID;           // 价格
+  common::Quantity quantity_ = common::Quantity_INVALID;  // 数量
 
   auto toString() const {
     std::ostringstream oss;
-    oss << "MEClientRequest"
+    oss << "MatchingEngineClientRequest"
         << " ["
         << "type:" << clientRequestTypeToString(type_)
-        << " client:" << Common::clientIdToString(clientId_)
-        << " ticker:" << Common::symbolIdToString(symbolId_)
-        << " oid:" << Common::orderIdToString(orderId_)
-        << " side:" << Common::sideToString(side_)
-        << " qty:" << Common::qtyToString(qty_)
-        << " price:" << Common::priceToString(price_) << "]";
+        << " client:" << common::clientIdToString(clientId_)
+        << " symbolId:" << common::symbolIdToString(symbolId_)
+        << " oid:" << common::orderIdToString(orderId_)
+        << " side:" << common::sideToString(side_)
+        << " quantity:" << common::quantityToString(quantity_)
+        << " price:" << common::priceToString(price_) << "]";
     return oss.str();
   }
 };
 
-struct OMClientRequest {
+struct OrderManagerClientRequest {
   size_t seqNum = 0;
-  MEClientRequest meClientRequest;
+  MatchingEngineClientRequest matching_engine_client_request;
 
   auto toString() const {
     std::ostringstream oss;
-    oss << "OMClientRequest"
+    oss << "OrderManagerClientRequest"
         << " ["
-        << "seqNum:" << seqNum << " " << meClientRequest.toString() << "]";
+        << "seqNum:" << seqNum << " "
+        << matching_engine_client_request.toString() << "]";
     return oss.str();
   }
 };
 
 #pragma pack(pop)
 
-using ClientRequestLFQueue = Common::LFQueue<MEClientRequest>;
-}  // namespace Exchange
+using ClientRequestLFQueue = common::LFQueue<MatchingEngineClientRequest>;
+}  // namespace exchange

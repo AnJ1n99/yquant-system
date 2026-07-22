@@ -8,7 +8,7 @@
 #include "tcp_socket.h"
 #include "time_utils.h"
 
-namespace Common {
+namespace common {
 
 class TCPServer {
  public:
@@ -49,4 +49,4 @@ class TCPServer {
   std::string time_str_;
   Logger& logger_;
 };
-}  // namespace Common
+}  // namespace common

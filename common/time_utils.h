@@ -8,7 +8,7 @@
 
 #include "perf_utils.h"
 
-namespace Common {
+namespace common {
 // Represent a nanosecond timestamp.
 typedef int64_t Nanos;
 
@@ -50,4 +50,4 @@ inline auto getCurrentTimeStr(std::string& timeStr) {
   std::snprintf(timeStr.data(), 22, "%02d:%02d:%02d.%09lld", tm_val.tm_hour,
                 tm_val.tm_min, tm_val.tm_sec, nanos);
 }
-}  // namespace Common
+}  // namespace common

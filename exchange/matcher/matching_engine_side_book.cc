@@ -1,19 +1,20 @@
-#include "me_side_book.h"
+#include "matching_engine_side_book.h"
 
-namespace Exchange {
+namespace exchange {
 
-MeSideBook::MeSideBook(Common::Side side, Common::MemPool<MEOrder>* orderPool,
-                       Common::MemPool<MEOrdersAtPrice>* pricePool)
+MatchingEngineSideBook::MatchingEngineSideBook(
+    common::Side side, common::MemPool<MatchingEngineOrder>* orderPool,
+    common::MemPool<MatchingEngineOrdersAtPrice>* pricePool)
     : side_(side), order_pool_(orderPool), price_pool_(pricePool) {
   price_levels_.fill(nullptr);
 }
 
-MeSideBook::~MeSideBook() {
+MatchingEngineSideBook::~MatchingEngineSideBook() {
   // 释放所有价格档位对象（处理哈希碰撞链表）
   for (size_t priceIdx = 0; priceIdx < price_levels_.size(); ++priceIdx) {
-    MEOrdersAtPrice* bucket = price_levels_[priceIdx];
+    MatchingEngineOrdersAtPrice* bucket = price_levels_[priceIdx];
     while (bucket != nullptr) {
-      MEOrdersAtPrice* next = bucket->hash_next;
+      MatchingEngineOrdersAtPrice* next = bucket->hash_next;
       price_pool_->deallocate(bucket);
       bucket = next;
     }
@@ -22,12 +23,13 @@ MeSideBook::~MeSideBook() {
   best_price_ = nullptr;
 }
 
-std::size_t MeSideBook::priceToIndex(Common::Price price) const noexcept {
-  return static_cast<std::size_t>(price) % Common::ME_MAX_PRICE_LEVELS;
+std::size_t MatchingEngineSideBook::priceToIndex(
+    common::Price price) const noexcept {
+  return static_cast<std::size_t>(price) % common::kMaxPriceLevels;
 }
 
-MEOrdersAtPrice* MeSideBook::getOrdersAtPrice(
-    Common::Price price) const noexcept {
+MatchingEngineOrdersAtPrice* MatchingEngineSideBook::getOrdersAtPrice(
+    common::Price price) const noexcept {
   auto* bucket = price_levels_[priceToIndex(price)];
   while (bucket != nullptr) {
     if (bucket->price == price) {
@@ -38,17 +40,18 @@ MEOrdersAtPrice* MeSideBook::getOrdersAtPrice(
   return nullptr;
 }
 
-Common::Priority MeSideBook::getNextPriority(
-    Common::Price price) const noexcept {
+common::Priority MatchingEngineSideBook::getNextPriority(
+    common::Price price) const noexcept {
   const auto ordersAtPrice = getOrdersAtPrice(price);
   if (ordersAtPrice == nullptr) {
     return 1lu;
   }
-  return ordersAtPrice->firstMeOrder->prev->priority + 1;
+  return ordersAtPrice->first_order->prev->priority + 1;
 }
 
-void MeSideBook::addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept {
-  const auto isBid = (side_ == Common::Side::BUY);
+void MatchingEngineSideBook::addOrderAtPrice(
+    MatchingEngineOrdersAtPrice* ordersAtPrice) noexcept {
+  const auto isBid = (side_ == common::Side::BUY);
 
   // 将价格档位加入哈希表（链地址法处理碰撞）
   const auto idx = priceToIndex(ordersAtPrice->price);
@@ -90,7 +93,7 @@ void MeSideBook::addOrderAtPrice(MEOrdersAtPrice* ordersAtPrice) noexcept {
   }
 }
 
-void MeSideBook::removeOrderAtPrice(Common::Price price) noexcept {
+void MatchingEngineSideBook::removeOrderAtPrice(common::Price price) noexcept {
   auto ordersAtPrice = getOrdersAtPrice(price);
   if (UNLIKELY(ordersAtPrice == nullptr)) {
     return;
@@ -111,7 +114,7 @@ void MeSideBook::removeOrderAtPrice(Common::Price price) noexcept {
   // 从哈希表中移除
   const auto idx = priceToIndex(price);
   auto* bucket = price_levels_[idx];
-  MEOrdersAtPrice* prev_bucket = nullptr;
+  MatchingEngineOrdersAtPrice* prev_bucket = nullptr;
 
   while (bucket != nullptr) {
     if (bucket->price == price) {
@@ -130,8 +133,8 @@ void MeSideBook::removeOrderAtPrice(Common::Price price) noexcept {
   price_pool_->deallocate(ordersAtPrice);
 }
 
-void MeSideBook::addOrder(MEOrder* order) noexcept {
-  if (UNLIKELY(order->price == Common::Price_INVALID || order->price < 0)) {
+void MatchingEngineSideBook::addOrder(MatchingEngineOrder* order) noexcept {
+  if (UNLIKELY(order->price == common::Price_INVALID || order->price < 0)) {
     return;
   }
 
@@ -148,7 +151,7 @@ void MeSideBook::addOrder(MEOrder* order) noexcept {
     addOrderAtPrice(ordersAtPrice);
   } else {
     // 价格档位已存在，插入到订单链表尾部（FIFO）
-    auto firstOrder = ordersAtPrice->firstMeOrder;
+    auto firstOrder = ordersAtPrice->first_order;
     order->prev = firstOrder->prev;
     order->next = firstOrder;
     firstOrder->prev->next = order;
@@ -156,7 +159,7 @@ void MeSideBook::addOrder(MEOrder* order) noexcept {
   }
 }
 
-void MeSideBook::removeOrder(MEOrder* order) noexcept {
+void MatchingEngineSideBook::removeOrder(MatchingEngineOrder* order) noexcept {
   auto ordersAtPrice = getOrdersAtPrice(order->price);
   if (UNLIKELY(ordersAtPrice == nullptr)) {
     return;
@@ -165,14 +168,14 @@ void MeSideBook::removeOrder(MEOrder* order) noexcept {
   // 从循环链表中移除订单节点
   if (order->next == order) {
     // 链表只有一个节点，清空价位
-    ordersAtPrice->firstMeOrder = nullptr;
+    ordersAtPrice->first_order = nullptr;
     removeOrderAtPrice(order->price);
   } else {
     order->prev->next = order->next;
     order->next->prev = order->prev;
     // 如果移除的是头节点，更新头指针
-    if (ordersAtPrice->firstMeOrder == order) {
-      ordersAtPrice->firstMeOrder = order->next;
+    if (ordersAtPrice->first_order == order) {
+      ordersAtPrice->first_order = order->next;
     }
   }
 
@@ -183,4 +186,4 @@ void MeSideBook::removeOrder(MEOrder* order) noexcept {
   order_pool_->deallocate(order);
 }
 
-}  // namespace Exchange
+}  // namespace exchange

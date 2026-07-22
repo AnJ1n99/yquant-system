@@ -14,7 +14,7 @@
 #include <iostream>
 #include <thread>
 
-namespace Common {
+namespace common {
 
 // 将当前线程绑定到指定 CPU 核心的内联函数
 inline auto setThreadCore(int core_id) noexcept {
@@ -55,4 +55,4 @@ inline auto createAndStartThread(int core_id, const std::string& name, T&& func,
       std::forward<T>(func), std::forward<A>(args)...);
   return t;
 }
-}  // namespace Common
+}  // namespace common

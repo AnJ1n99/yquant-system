@@ -12,17 +12,17 @@
 #include "logging.h"
 #include "time_utils.h"
 
-namespace Exchange {
+namespace exchange {
 class OrderManager;
 }
 
-namespace Common {
+namespace common {
 // size of our send and receive buffers in bytes.
 constexpr size_t TCPBufferSize = 64 * 1024 * 1024;  // 64MB
 
 class TCPSocket {
   friend class TCPServer;
-  friend class Exchange::OrderManager;
+  friend class exchange::OrderManager;
 
  public:
   explicit TCPSocket(Logger& logger) : logger_(logger) {
@@ -72,4 +72,4 @@ class TCPSocket {
   std::string timeStr_;
   Logger& logger_;  // 引用需要在初始化函数构造
 };
-}  // namespace Common
+}  // namespace common

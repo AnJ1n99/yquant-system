@@ -11,7 +11,7 @@
 #include "logging.h"
 #include "socket_utils.h"
 
-namespace Common {
+namespace common {
 constexpr size_t McastBufferSize = 64 * 1024 * 1024;
 
 class McastSocket {
@@ -60,4 +60,4 @@ class McastSocket {
   std::string timeStr;
   Logger& logger;
 };
-}  // namespace Common
+}  // namespace common

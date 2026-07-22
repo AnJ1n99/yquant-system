@@ -8,7 +8,7 @@
 #include "socket_utils.h"
 #include "time_utils.h"
 
-namespace Common {
+namespace common {
 // 既用于客户端“连接”，也用于服务端“监听”
 auto TCPSocket::connect(const std::string& ip, const std::string& iface,
                         int port, bool isListening) -> int {
@@ -79,4 +79,4 @@ void TCPSocket::send(const void* data, size_t len) noexcept {
   memcpy(outbound_data_.data() + nextSendVaildIndex_, data, len);
   nextSendVaildIndex_ += len;
 }
-}  // namespace Common
+}  // namespace common

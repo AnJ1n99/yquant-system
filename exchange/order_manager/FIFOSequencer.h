@@ -18,29 +18,30 @@
 #include "../../common/perf_utils.h"
 #include "client_request.h"
 
-namespace Exchange {
-constexpr std::size_t ME_MAX_PENDING_REQUESTS = 1024;
+namespace exchange {
+constexpr std::size_t kMaxPendingRequests = 1024;
 
 class FIFOSequencer {
  public:
-  FIFOSequencer(ClientRequestLFQueue* requests, Common::Logger* logger)
+  FIFOSequencer(ClientRequestLFQueue* requests, common::Logger* logger)
       : incomingRequest_(requests), logger_(logger) {}
 
   ~FIFOSequencer() {}
 
-  auto addClientRequest(Common::Nanos rxTime, const MEClientRequest& request) {
-    if (pendingSize >= ME_MAX_PENDING_REQUESTS) {
+  auto addClientRequest(common::Nanos rxTime,
+                        const MatchingEngineClientRequest& request) {
+    if (pendingSize >= kMaxPendingRequests) {
       FATAL("To many pending requests ");
     }  // this is a right value, so we use the std::move
     pendingClientRequests.at(pendingSize++) =
-        RecvTimeClientRequest{rxTime, request};
+        TimestampedClientRequest{rxTime, request};
   }
 
   // 接收到一批请求后，按接收时间排序，并将它们写入无锁队列供后续处理
   auto sequenceAndPublish() {
     if (UNLIKELY(!pendingSize)) return;
 
-    Common::getCurrentTimeStr(time_str_);
+    common::getCurrentTimeStr(time_str_);
     logger_->log("%:% %() % Processing % requests.\n", __FILE__, __LINE__,
                  __FUNCTION__, time_str_, pendingSize);
 
@@ -50,15 +51,16 @@ class FIFOSequencer {
     for (size_t i = 0; i < pendingSize; ++i) {
       const auto& client_request = pendingClientRequests.at(i);
 
-      Common::getCurrentTimeStr(time_str_);
+      common::getCurrentTimeStr(time_str_);
       logger_->log("%:% %() % Writing RX: % Req % to FIFO.\n", __FILE__,
-                   __LINE__, __FUNCTION__, time_str_, client_request.recvTime,
+                   __LINE__, __FUNCTION__, time_str_,
+                   client_request.receive_time,
                    client_request.request.toString());
 
       auto nextWrite = incomingRequest_->getNextToWriteTo();
       *nextWrite = std::move(client_request.request);
       incomingRequest_->updateWriteIndex();
-      TTT_MEASURE(T2_OrderServer_LFQueue_write, (*logger_));
+      TTT_MEASURE(T2_OrderManager_LFQueue_write, (*logger_));
     }
     pendingSize = 0;
   }
@@ -73,20 +75,20 @@ class FIFOSequencer {
   ClientRequestLFQueue* incomingRequest_ = nullptr;
 
   std::string time_str_;
-  Common::Logger* logger_ = nullptr;
+  common::Logger* logger_ = nullptr;
 
-  struct RecvTimeClientRequest {
-    Common::Nanos recvTime = 0;
-    MEClientRequest request;
+  struct TimestampedClientRequest {
+    common::Nanos receive_time = 0;
+    MatchingEngineClientRequest request;
 
-    bool operator<(const RecvTimeClientRequest& rhs) const noexcept {
-      return recvTime < rhs.recvTime;
+    bool operator<(const TimestampedClientRequest& rhs) const noexcept {
+      return receive_time < rhs.receive_time;
     }
   };
 
-  std::array<RecvTimeClientRequest, ME_MAX_PENDING_REQUESTS>
+  std::array<TimestampedClientRequest, kMaxPendingRequests>
       pendingClientRequests;
   size_t pendingSize = 0;
 };
 
-}  // namespace Exchange
+}  // namespace exchange

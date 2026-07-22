@@ -18,7 +18,7 @@
 #include "macros.h"
 #include "time_utils.h"
 
-namespace Common {
+namespace common {
 struct SocketCfg {
   std::string ip_;
   std::string iface_;
@@ -176,4 +176,4 @@ inline bool join(int fd, const std::string& ip) {
   }
   return socketFd;
 }
-}  // namespace Common
+}  // namespace common

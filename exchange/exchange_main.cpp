@@ -22,7 +22,7 @@
 #include "order_manager/client_response.h"
 
 // 主要组件，设为全局变量以便信号处理器访问
-Common::Logger* logger = nullptr;
+common::Logger* logger = nullptr;
 
 /// 外部信号触发时优雅关闭服务器
 void signal_handler(int) {
@@ -46,7 +46,7 @@ void signal_handler(int) {
 
 int main(int argc, char** argv) {
   // main logger
-  logger = new Common::Logger("exchange_main.log");
+  logger = new common::Logger("exchange_main.log");
 
   // 注册信号处理器
   std::signal(SIGINT, signal_handler);
@@ -55,10 +55,10 @@ int main(int argc, char** argv) {
   const int sleep_time = 100 * 1000;
 
   // 无锁队列，用于订单服务器与匹配引擎、匹配引擎与市场数据发布器之间的通信
-  Exchange::ClientRequestLFQueue client_requests(Common::ME_MAX_CLIENT_UPDATES);
-  Exchange::ClientResponseLFQueue client_responses(
-      Common::ME_MAX_CLIENT_UPDATES);
-  Exchange::MEMarketUpdateLFQueue market_updates(Common::ME_MAX_MARKET_UPDATES);
+  exchange::ClientRequestLFQueue client_requests(common::kMaxClientUpdates);
+  exchange::ClientResponseLFQueue client_responses(common::kMaxClientUpdates);
+  exchange::MatchingEngineMarketUpdateLFQueue market_updates(
+      common::kMaxMarketUpdates);
 
   std::string time_str_;
 

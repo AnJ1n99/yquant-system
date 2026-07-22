@@ -4,7 +4,7 @@
 
 #include "FIFOSequencer.h"
 
-namespace Exchange {
+namespace exchange {
 
 OrderManager::OrderManager(ClientRequestLFQueue* clientRequests,
                            ClientResponseLFQueue* clientResponses,
@@ -36,11 +36,11 @@ auto OrderManager::start() -> void {
 
   tcpServer.listen(iface, port);
 
-  ASSERT(Common::createAndStartThread(1, "Exchange/OrderServer",
+  ASSERT(common::createAndStartThread(1, "Exchange/OrderManager",
                                       [this]() { run(); }) != nullptr,
-         "Failed to start OrderServer thread.");
+         "Failed to start OrderManager thread.");
 }
 
 auto OrderManager::stop() -> void { run_ = false; }
 
-}  // namespace Exchange
+}  // namespace exchange

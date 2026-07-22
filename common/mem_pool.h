@@ -6,7 +6,7 @@
 
 #include "macros.h"
 
-namespace Common {
+namespace common {
 template <class T>
 class MemPool final {
  public:
@@ -74,4 +74,4 @@ class MemPool final {
 
   size_t nextFreeIndex = 0;
 };
-}  // namespace Common
+}  // namespace common

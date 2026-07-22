@@ -14,7 +14,7 @@
 // 日式输出格式 <timestamp> <type> <tag> <value>
 // 14:23:45.123456 RDTSC T3_MatchingEngine_LFQueue_read 5200
 
-namespace Common {
+namespace common {
 // 用于记录日志的数据的无锁队列的最大大小
 constexpr size_t LOG_QUEUE_SIZE = 8 * 1024 * 1024;  // 8MB 队列
 
@@ -261,4 +261,4 @@ class Logger final {
   // background logging thread
   std::thread* loggerThread_ = nullptr;
 };
-}  // namespace Common
+}  // namespace common

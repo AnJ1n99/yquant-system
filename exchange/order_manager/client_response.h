@@ -6,7 +6,7 @@
 #include "../../common/ringBuffer.h"
 #include "../../common/types.h"
 
-namespace Exchange {
+namespace exchange {
 enum class ClientResponseType {
   INVALID = 0,
   ACCEPTED = 1,
@@ -32,47 +32,49 @@ inline std::string clientResponseTypeToString(ClientResponseType type) {
 }
 
 #pragma pack(push, 1)
-struct MEClientResponse {
+struct MatchingEngineClientResponse {
   ClientResponseType type_ = ClientResponseType::INVALID;
-  Common::ClientId client_id_ = Common::ClientId_INVALID;
-  Common::SymbolId symbol_id_ = Common::SymbolId_INVALID;
-  Common::OrderId client_order_id_ = Common::OrderId_INVALID;
-  Common::OrderId market_order_id_ = Common::OrderId_INVALID;
-  Common::Side side_ = Common::Side::INVALID;
-  Common::Price price_ = Common::Price_INVALID;
-  Common::Qty exec_qty_ = Common::Qty_INVALID;
-  Common::Qty leaves_qty_ = Common::Qty_INVALID;
+  common::ClientId client_id_ = common::ClientId_INVALID;
+  common::SymbolId symbol_id_ = common::SymbolId_INVALID;
+  common::OrderId client_order_id_ = common::OrderId_INVALID;
+  common::OrderId market_order_id_ = common::OrderId_INVALID;
+  common::Side side_ = common::Side::INVALID;
+  common::Price price_ = common::Price_INVALID;
+  common::Quantity executed_quantity_ = common::Quantity_INVALID;
+  common::Quantity remaining_quantity_ = common::Quantity_INVALID;
 
   auto toString() const {
     std::ostringstream oss;
-    oss << "MEClientResponse"
+    oss << "MatchingEngineClientResponse"
         << " ["
         << "type:" << clientResponseTypeToString(type_)
-        << " client:" << Common::clientIdToString(client_id_)
-        << " symbol:" << Common::symbolIdToString(symbol_id_)
-        << " coid:" << Common::orderIdToString(client_order_id_)
-        << " moid:" << Common::orderIdToString(market_order_id_)
-        << " side:" << Common::sideToString(side_)
-        << " exec_qty:" << Common::qtyToString(exec_qty_)
-        << " leaves_qty:" << Common::qtyToString(leaves_qty_)
-        << " price:" << Common::priceToString(price_) << "]";
+        << " client:" << common::clientIdToString(client_id_)
+        << " symbol:" << common::symbolIdToString(symbol_id_)
+        << " coid:" << common::orderIdToString(client_order_id_)
+        << " moid:" << common::orderIdToString(market_order_id_)
+        << " side:" << common::sideToString(side_)
+        << " executed_quantity:" << common::quantityToString(executed_quantity_)
+        << " remaining_quantity:"
+        << common::quantityToString(remaining_quantity_)
+        << " price:" << common::priceToString(price_) << "]";
     return oss.str();
   }
 };
 
-struct OMClientResponse {
+struct OrderManagerClientResponse {
   size_t seqNum = 0;
-  MEClientResponse meClientResponse;
+  MatchingEngineClientResponse matching_engine_client_response;
 
   auto toString() {
     std::ostringstream oss;
-    oss << "OMClientResponse"
+    oss << "OrderManagerClientResponse"
         << " ["
-        << "seq:" << seqNum << " " << meClientResponse.toString() << "]";
+        << "seq:" << seqNum << " " << matching_engine_client_response.toString()
+        << "]";
     return oss.str();
   }
 };
 
 #pragma pack(pop)
-using ClientResponseLFQueue = Common::LFQueue<MEClientResponse>;
-}  // namespace Exchange
+using ClientResponseLFQueue = common::LFQueue<MatchingEngineClientResponse>;
+}  // namespace exchange

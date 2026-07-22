@@ -2,11 +2,12 @@
 
 #include "../common/logging.h"
 
-namespace Exchange {
+namespace exchange {
 
-SnapshotSynthesizer::SnapshotSynthesizer(OrderBookHashMap* tickerOrderBook,
-                                         MEMarketUpdateLFQueue* marketUpdates)
-    : tickerOrderBook_(tickerOrderBook),
+SnapshotSynthesizer::SnapshotSynthesizer(
+    OrderBookHashMap* symbol_order_book,
+    MatchingEngineMarketUpdateLFQueue* marketUpdates)
+    : symbol_order_book_(symbol_order_book),
       marketUpdates_(marketUpdates),
       logger_("SnapshotSynthesizer.log") {
   // Initialize snapshot synthesizer with reference to order books and market
@@ -22,21 +23,21 @@ void SnapshotSynthesizer::start() {
 
 void SnapshotSynthesizer::stop() { run_ = false; }
 
-void SnapshotSynthesizer::generateSnapshot(Common::SymbolId /*symbolId*/) {
-  // Generate a snapshot for a specific ticker by reading the current state of
+void SnapshotSynthesizer::generateSnapshot(common::SymbolId /*symbolId*/) {
+  // Generate a snapshot for a specific symbol by reading the current state of
   // the order book Implementation will iterate through the order book and
   // create snapshot updates
 }
 
 void SnapshotSynthesizer::generateAllSnapshots() {
-  // Generate snapshots for all tickers in the system
+  // Generate snapshots for all symbols in the system
   // Implementation will iterate through all order books
 }
 
 void SnapshotSynthesizer::publishSnapshot(
-    const std::vector<MEMarketUpdate>& /*snapshot*/) {
+    const std::vector<MatchingEngineMarketUpdate>& /*snapshot*/) {
   // Publish the snapshot to the market updates queue
   // Implementation will add snapshot updates to the queue for distribution
 }
 
-}  // namespace Exchange
+}  // namespace exchange

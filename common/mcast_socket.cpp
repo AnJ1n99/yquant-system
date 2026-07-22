@@ -8,7 +8,7 @@
 #include "socket_utils.h"
 #include "time_utils.h"
 
-namespace Common {
+namespace common {
 auto McastSocket::init(const std::string& ip, const std::string& iface,
                        int port, bool is_listening) -> int {
   const SocketCfg CFG{ip, iface, port, true, is_listening, false};
@@ -17,7 +17,7 @@ auto McastSocket::init(const std::string& ip, const std::string& iface,
 }
 
 auto McastSocket::join(const std::string& ip) -> bool {
-  return Common::join(socketFd, ip);
+  return common::join(socketFd, ip);
 }
 
 // Remove / Leave membership / subscription to a multicast stream.
@@ -59,4 +59,4 @@ auto McastSocket::send(const void* data, size_t len) noexcept -> void {
   ASSERT(nextSendValidIndex < McastBufferSize,
          "Mcast socket buffer filled up and sendAndRecv() not called.");
 }
-}  // namespace Common
+}  // namespace common

@@ -15,7 +15,7 @@
 
 #include "macros.h"
 
-namespace Common {
+namespace common {
 // * 任意类型  FIFO  SPSC 场景线程安全及优化（内存对齐避免伪共享）
 // * 固定大小和首尾相连
 template <typename T>
@@ -117,4 +117,4 @@ class LFQueue final {  // !final 防止被继承
   alignas(64) std::atomic<std::size_t> nextReadIndex{0};
   alignas(64) std::atomic<std::size_t> numElements{0};
 };
-}  // namespace Common
+}  // namespace common

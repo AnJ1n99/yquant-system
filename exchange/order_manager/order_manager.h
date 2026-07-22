@@ -3,10 +3,10 @@
 // 入口点，负责接受客户端连接、接收订单请求、验证序列号并将响应路由回交易客户端
 // 主要职责：
 // 1. TCPServer使用epoll监听新的客户端连接
-// 2. OMClientRequest从 TCP 套接字读取消息
+// 2. OrderManagerClientRequest从 TCP 套接字读取消息
 // 3. 验证每个客户端的序列号（通过cid_next_exp_seq_num_数组）
 // 4. 将已验证的请求转发至FIFOSequencer订购系统。
-// 5. OMClientResponse向 client回复消息
+// 5. OrderManagerClientResponse向 client回复消息
 
 #pragma once
 
@@ -21,7 +21,7 @@
 #include "client_request.h"
 #include "client_response.h"
 
-namespace Exchange {
+namespace exchange {
 class OrderManager {
  public:
   OrderManager(ClientRequestLFQueue* clientRequests,
@@ -35,7 +35,7 @@ class OrderManager {
   auto
   run() noexcept {  // 该函数在独立线程中持续运行，负责将来自交易系统的响应消息通过
                     // TCP 发送给客户端，并保证消息顺序正确
-    Common::getCurrentTimeStr(time_str_);
+    common::getCurrentTimeStr(time_str_);
     logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, time_str_);
 
     while (run_) {
@@ -49,7 +49,7 @@ class OrderManager {
 
         auto& nextOutgoingSeqNum =
             cidNextOutgoingSeqNum[clientResponse->client_id_];
-        Common::getCurrentTimeStr(time_str_);
+        common::getCurrentTimeStr(time_str_);
         logger.log("%:% %() % Processing cid:% seq:% %\n", __FILE__, __LINE__,
                    __FUNCTION__, time_str_, clientResponse->client_id_,
                    nextOutgoingSeqNum, clientResponse->toString());
@@ -63,11 +63,11 @@ class OrderManager {
         cidTcpSocketMap[clientResponse->client_id_]->send(
             &nextOutgoingSeqNum, sizeof(nextOutgoingSeqNum));
         cidTcpSocketMap[clientResponse->client_id_]->send(
-            clientResponse, sizeof(MEClientResponse));
+            clientResponse, sizeof(MatchingEngineClientResponse));
         END_MEASURE(Exchange_TCPSocket_send, logger);
 
         outgoingResponses->updateReadIndex();
-        TTT_MEASURE(T6t_OrderServer_TCP_write, logger);
+        TTT_MEASURE(T6t_OrderManager_TCP_write, logger);
 
         ++nextOutgoingSeqNum;
       }
@@ -79,59 +79,65 @@ class OrderManager {
   // 参数：
   //   - socket: 接收到数据的TCP套接字
   //   - rxTime: 接收数据的时间戳（纳秒）
-  auto recvCallback(Common::TCPSocket* socket, Common::Nanos rxTime) noexcept {
+  auto recvCallback(common::TCPSocket* socket, common::Nanos rxTime) noexcept {
     TTT_MEASURE(T1_OrderManager, logger);
-    Common::getCurrentTimeStr(time_str_);
+    common::getCurrentTimeStr(time_str_);
     logger.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__,
                __FUNCTION__, time_str_, socket->socket_fd,
                socket->nextRevVaildIndex_, rxTime);
 
-    // 检查接收缓冲区是否至少包含一个完整的请求（OMClientRequest结构体）
-    if (socket->nextRevVaildIndex_ >= sizeof(OMClientRequest)) {
+    // 检查接收缓冲区是否至少包含一个完整的请求（OrderManagerClientRequest结构体）
+    if (socket->nextRevVaildIndex_ >= sizeof(OrderManagerClientRequest)) {
       size_t i = 0;
       // 遍历接收缓冲区中的所有完整请求
-      for (; i + sizeof(OMClientRequest) <= socket->nextRevVaildIndex_;
-           i += sizeof(OMClientRequest)) {
-        auto request = reinterpret_cast<const OMClientRequest*>(
+      for (;
+           i + sizeof(OrderManagerClientRequest) <= socket->nextRevVaildIndex_;
+           i += sizeof(OrderManagerClientRequest)) {
+        auto request = reinterpret_cast<const OrderManagerClientRequest*>(
             socket->inbound_data_.data() + i);
-        Common::getCurrentTimeStr(time_str_);
+        common::getCurrentTimeStr(time_str_);
         logger.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__,
                    time_str_, request->toString());
 
         // 检查是否是来自该客户端的第一条消息
         // 如果是，则记录该客户端ID对应的TCP套接字
-        if (UNLIKELY(cidTcpSocketMap[request->meClientRequest.clientId_] ==
+        if (UNLIKELY(cidTcpSocketMap[request->matching_engine_client_request
+                                         .clientId_] ==
                      nullptr)) {  // first message from this ClientId.
-          cidTcpSocketMap[request->meClientRequest.clientId_] = socket;
+          cidTcpSocketMap[request->matching_engine_client_request.clientId_] =
+              socket;
         }
 
         // 验证客户端身份：检查请求是否来自该客户端绑定的套接字
         // 防止客户端使用错误的连接发送请求（安全检查）
-        if (cidTcpSocketMap[request->meClientRequest.clientId_] !=
+        if (cidTcpSocketMap[request->matching_engine_client_request
+                                .clientId_] !=
             socket) {  // TODO - change this to send a reject back to the
                        // client.
-          Common::getCurrentTimeStr(time_str_);
+          common::getCurrentTimeStr(time_str_);
           logger.log(
               "%:% %() % Received ClientRequest from ClientId:% on different "
               "socket:% expected:%\n",
               __FILE__, __LINE__, __FUNCTION__, time_str_,
-              request->meClientRequest.clientId_, socket->socket_fd,
-              cidTcpSocketMap[request->meClientRequest.clientId_]->socket_fd);
+              request->matching_engine_client_request.clientId_,
+              socket->socket_fd,
+              cidTcpSocketMap[request->matching_engine_client_request.clientId_]
+                  ->socket_fd);
           continue;
         }
 
         // 获取该客户端期望的下一个序列号
         auto& nextExpSeqNum =
-            cidNextExpSeqNum[request->meClientRequest.clientId_];
+            cidNextExpSeqNum[request->matching_engine_client_request.clientId_];
         // 验证序列号：确保请求按顺序到达
         if (request->seqNum != nextExpSeqNum) {  // TODO - change this to send a
                                                  // reject back to the client.
-          Common::getCurrentTimeStr(time_str_);
+          common::getCurrentTimeStr(time_str_);
           logger.log(
               "%:% %() % Incorrect sequence number. ClientId:% SeqNum "
               "expected:% received:%\n",
               __FILE__, __LINE__, __FUNCTION__, time_str_,
-              request->meClientRequest.clientId_, nextExpSeqNum,
+              request->matching_engine_client_request.clientId_, nextExpSeqNum,
               request->seqNum);
           continue;
         }
@@ -141,7 +147,8 @@ class OrderManager {
 
         // 将有效的客户端请求添加到FIFOSequencer进行排序和处理
         START_MEASURE(Exchange_FIFOSequencer_addClientRequest);
-        fifoSequencer.addClientRequest(rxTime, request->meClientRequest);
+        fifoSequencer.addClientRequest(rxTime,
+                                       request->matching_engine_client_request);
         END_MEASURE(Exchange_FIFOSequencer_addClientRequest, logger);
       }
 
@@ -173,19 +180,19 @@ class OrderManager {
   volatile bool run_ = false;
 
   std::string time_str_;
-  Common::Logger logger;
+  common::Logger logger;
 
   // 记录下一个即将发出的序列号
-  std::array<size_t, Common::ME_MAX_NUM_CLIENTS> cidNextOutgoingSeqNum;
+  std::array<size_t, common::kMaxNumClients> cidNextOutgoingSeqNum;
 
   // 记录下一个期望收到的序列号
-  std::array<size_t, Common::ME_MAX_NUM_CLIENTS> cidNextExpSeqNum;
+  std::array<size_t, common::kMaxNumClients> cidNextExpSeqNum;
 
   // // 客户端 socket 映射
-  std::array<Common::TCPSocket*, Common::ME_MAX_NUM_CLIENTS> cidTcpSocketMap;
+  std::array<common::TCPSocket*, common::kMaxNumClients> cidTcpSocketMap;
 
-  Common::TCPServer tcpServer;
+  common::TCPServer tcpServer;
 
   FIFOSequencer fifoSequencer;  // incomingRequest
 };
-}  // namespace Exchange
+}  // namespace exchange

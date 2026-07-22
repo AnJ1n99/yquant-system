@@ -9,7 +9,7 @@
 #include "tcp_socket.h"
 #include "time_utils.h"
 
-namespace Common {
+namespace common {
 auto TCPServer::addToEpollList(TCPSocket* socket) {
   epoll_event ev{EPOLLET | EPOLLIN, {reinterpret_cast<void*>(socket)}};
   // 设置边缘触发(EPOLLET)和监听可读事件(EPOLLIN)
@@ -126,4 +126,4 @@ auto TCPServer::poll() noexcept -> void {
   }
 }
 
-}  // namespace Common
+}  // namespace common

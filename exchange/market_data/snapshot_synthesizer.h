@@ -5,34 +5,34 @@
 #include <vector>
 
 #include "../common/logging.h"
-#include "../matcher/me_order.h"
-#include "../matcher/me_order_book.h"
+#include "../matcher/matching_engine_order.h"
+#include "../matcher/matching_engine_order_book.h"
 #include "market_update.h"
 
-namespace Exchange {
+namespace exchange {
 
 class SnapshotSynthesizer {
  public:
-  SnapshotSynthesizer(OrderBookHashMap* tickerOrderBook,
-                      MEMarketUpdateLFQueue* marketUpdates);
+  SnapshotSynthesizer(OrderBookHashMap* symbol_order_book,
+                      MatchingEngineMarketUpdateLFQueue* marketUpdates);
   ~SnapshotSynthesizer();
 
   void start();
   void stop();
 
-  void generateSnapshot(Common::SymbolId symbolId);
+  void generateSnapshot(common::SymbolId symbolId);
   void generateAllSnapshots();
 
  private:
-  void publishSnapshot(const std::vector<MEMarketUpdate>& snapshot);
+  void publishSnapshot(const std::vector<MatchingEngineMarketUpdate>& snapshot);
 
-  [[maybe_unused]] OrderBookHashMap* tickerOrderBook_ = nullptr;
-  [[maybe_unused]] MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
+  [[maybe_unused]] OrderBookHashMap* symbol_order_book_ = nullptr;
+  [[maybe_unused]] MatchingEngineMarketUpdateLFQueue* marketUpdates_ = nullptr;
   std::atomic<bool> run_{false};
   std::thread snapshotThread_;
-  Common::Logger logger_;
+  common::Logger logger_;
 
   std::string time_str_;
 };
 
-}  // namespace Exchange
+}  // namespace exchange

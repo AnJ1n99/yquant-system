@@ -7,27 +7,27 @@
 
 #include "macros.h"
 
-namespace Common {
+namespace common {
 // Constants used across the ecosystem to represent upper bounds on various
-// containers. Trading instruments / TickerIds from [0, ME_MAX_TICKERS].
+// containers. Trading instruments / TickerIds from [0, kMaxSymbols].
 
-constexpr size_t ME_MAX_SYMBOLS = 8;
+constexpr size_t kMaxSymbols = 8;
 
 // Maximum size of lock free queues used to transfer client requests, client
 // responses and market updates between components.
-constexpr size_t ME_MAX_CLIENT_UPDATES = 256 * 1024;
-constexpr size_t ME_MAX_MARKET_UPDATES = 256 * 1024;
+constexpr size_t kMaxClientUpdates = 256 * 1024;
+constexpr size_t kMaxMarketUpdates = 256 * 1024;
 
 // Maximum number of clients supported by the system.
-constexpr size_t ME_MAX_NUM_CLIENTS = 256;
+constexpr size_t kMaxNumClients = 256;
 
 // max number of orders per trading clients
-constexpr size_t ME_MAX_ORDER_IDS = 1024 * 1024;
+constexpr size_t kMaxOrderIds = 1024 * 1024;
 
 // Maximum price level depth in the order books.
-constexpr size_t ME_MAX_PRICE_LEVELS = 256;
+constexpr size_t kMaxPriceLevels = 256;
 
-typedef uint64_t OrderId;
+using OrderId = uint64_t;
 constexpr auto OrderId_INVALID = std::numeric_limits<OrderId>::max();
 
 inline auto orderIdToString(OrderId order_id) -> std::string {
@@ -39,7 +39,7 @@ inline auto orderIdToString(OrderId order_id) -> std::string {
 }
 
 // 股票代码
-typedef uint32_t SymbolId;
+using SymbolId = uint32_t;
 constexpr auto SymbolId_INVALID = std::numeric_limits<SymbolId>::max();
 
 inline auto symbolIdToString(SymbolId symbol_id) -> std::string {
@@ -50,7 +50,7 @@ inline auto symbolIdToString(SymbolId symbol_id) -> std::string {
   return std::to_string(symbol_id);
 }
 
-typedef uint32_t ClientId;
+using ClientId = uint32_t;
 constexpr auto ClientId_INVALID = std::numeric_limits<ClientId>::max();
 
 inline auto clientIdToString(ClientId client_id) -> std::string {
@@ -61,7 +61,7 @@ inline auto clientIdToString(ClientId client_id) -> std::string {
   return std::to_string(client_id);
 }
 
-typedef int64_t Price;
+using Price = int64_t;
 constexpr auto Price_INVALID = std::numeric_limits<Price>::max();
 
 inline auto priceToString(Price price) -> std::string {
@@ -72,15 +72,15 @@ inline auto priceToString(Price price) -> std::string {
   return std::to_string(price);
 }
 
-typedef uint32_t Qty;
-constexpr auto Qty_INVALID = std::numeric_limits<Qty>::max();
+using Quantity = uint32_t;
+constexpr auto Quantity_INVALID = std::numeric_limits<Quantity>::max();
 
-inline auto qtyToString(Qty qty) -> std::string {
-  if (UNLIKELY(qty == Qty_INVALID)) {
+inline auto quantityToString(Quantity quantity) -> std::string {
+  if (UNLIKELY(quantity == Quantity_INVALID)) {
     return "INVALID";
   }
 
-  return std::to_string(qty);
+  return std::to_string(quantity);
 }
 
 // 买卖方向
@@ -101,7 +101,7 @@ inline auto sideToString(Side side) -> std::string {
 }
 
 // 优先级 (通常使用纳秒时间戳实现价格-时间优先级)
-typedef uint64_t Priority;
+using Priority = uint64_t;
 constexpr auto Priority_INVALID = std::numeric_limits<Priority>::max();
 
 inline auto priorityToString(Priority priority) -> std::string {
@@ -111,4 +111,4 @@ inline auto priorityToString(Priority priority) -> std::string {
 
   return std::to_string(priority);
 }
-}  // namespace Common
+}  // namespace common

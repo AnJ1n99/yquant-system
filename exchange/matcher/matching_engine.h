@@ -10,14 +10,14 @@
 #include "../market_data/market_update.h"
 #include "../order_manager/client_request.h"
 #include "../order_manager/client_response.h"
-#include "me_order_book.h"
+#include "matching_engine_order_book.h"
 
-namespace Exchange {
+namespace exchange {
 class MatchingEngine final {
  public:
   MatchingEngine(ClientRequestLFQueue* clientRequests,
                  ClientResponseLFQueue* outgoingResponses,
-                 MEMarketUpdateLFQueue* outgoingUpdates);
+                 MatchingEngineMarketUpdateLFQueue* outgoingUpdates);
 
   ~MatchingEngine();
 
@@ -25,11 +25,13 @@ class MatchingEngine final {
   void stop();
 
   // 处理从无锁队列读取的客户端请求（由OrderManager发送）
-  void processClientRequest(const MEClientRequest* clientRequest) noexcept;
+  void processClientRequest(
+      const MatchingEngineClientRequest* clientRequest) noexcept;
   // 将客户端响应写入无锁队列，供OrderManager消费
-  void sendClientResponse(const MEClientResponse* response) noexcept;
+  void sendClientResponse(
+      const MatchingEngineClientResponse* response) noexcept;
   // 将市场更新写入无锁队列，供MarketDataPublisher消费
-  void sendMarketUpdate(const MEMarketUpdate* update) noexcept;
+  void sendMarketUpdate(const MatchingEngineMarketUpdate* update) noexcept;
 
   // 禁用拷贝构造函数、移动构造函数、拷贝赋值操作符和移动赋值操作符
   MatchingEngine() = delete;
@@ -41,7 +43,7 @@ class MatchingEngine final {
  private:
   // 主运行循环
   void run();
-  // symbol 到 MEOrderBook 的哈希映射
+  // symbol 到 MatchingEngineOrderBook 的哈希映射
   OrderBookHashMap symbol_order_book;
 
   // 无锁队列：
@@ -50,13 +52,13 @@ class MatchingEngine final {
   // 第三个用于发布 outgoing 市场更新，供市场数据发布器消费
 
   ClientRequestLFQueue* incoming_requests = nullptr;
-  ClientResponseLFQueue* outgoing_ogw_responses = nullptr;
-  MEMarketUpdateLFQueue* outgoing_md_updates = nullptr;
+  ClientResponseLFQueue* outgoing_client_responses = nullptr;
+  MatchingEngineMarketUpdateLFQueue* outgoing_market_updates = nullptr;
 
   volatile bool running_ = false;
 
   std::string time_str_;
-  Common::Logger logger;
+  common::Logger logger;
 };
 
-}  // namespace Exchange
+}  // namespace exchange

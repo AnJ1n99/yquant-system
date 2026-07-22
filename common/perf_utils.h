@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-namespace Common {
+namespace common {
 // 读取 CPU 时间戳计数器（TSC）
 /*
         精度：单个 CPU 周期粒度
@@ -26,13 +26,13 @@ inline auto rdtsc() { return static_cast<uint64_t>(0); }
 #endif
 
 // 使用rdtsc（）启动延迟测量。在局部作用域中创建一个名为tga的变量。
-#define START_MEASURE(TAG) const auto TAG = Common::rdtsc();
+#define START_MEASURE(TAG) const auto TAG = common::rdtsc();
 
 // 使用rdtsc（）测量结束延迟。期望一个名为tgg的变量已经存在于局部作用域中。
 #define END_MEASURE(TAG, LOGGER)                                \
   do {                                                          \
-    auto end = Common::rdtsc();                                 \
-    Common::getCurrentTimeStr(time_str_);                       \
+    auto end = common::rdtsc();                                 \
+    common::getCurrentTimeStr(time_str_);                       \
     LOGGER.log("% RDTSC " #TAG " %\n", time_str_, (end - TAG)); \
   } while (false)
 
@@ -40,8 +40,8 @@ inline auto rdtsc() { return static_cast<uint64_t>(0); }
 // 分析多个事件发生的先后顺序或绝对时间点（Time-To-Tick）
 #define TTT_MEASURE(TAG, LOGGER)                      \
   do {                                                \
-    const auto TAG = Common::getCurrentNanos();       \
-    Common::getCurrentTimeStr(time_str_);             \
+    const auto TAG = common::getCurrentNanos();       \
+    common::getCurrentTimeStr(time_str_);             \
     LOGGER.log("% TTT " #TAG " %\n", time_str_, TAG); \
   } while (false)
-}  // namespace Common
+}  // namespace common

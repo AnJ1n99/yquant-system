@@ -6,17 +6,17 @@
 
 #include "../common/ringBuffer.h"
 #include "../common/types.h"
-#include "../matcher/me_order_book.h"
+#include "../matcher/matching_engine_order_book.h"
 #include "../order_manager/client_response.h"
 
-namespace Exchange {
+namespace exchange {
 
 // Forward declaration
-struct MEMarketUpdate;
+struct MatchingEngineMarketUpdate;
 
 class MarketDataPublisher {
  public:
-  MarketDataPublisher(MEMarketUpdateLFQueue* marketUpdates,
+  MarketDataPublisher(MatchingEngineMarketUpdateLFQueue* marketUpdates,
                       const std::string& multicastAddr, int port);
   ~MarketDataPublisher();
 
@@ -26,14 +26,14 @@ class MarketDataPublisher {
  private:
   void run();
 
-  [[maybe_unused]] MEMarketUpdateLFQueue* marketUpdates_ = nullptr;
+  [[maybe_unused]] MatchingEngineMarketUpdateLFQueue* marketUpdates_ = nullptr;
   [[maybe_unused]] std::string multicastAddr_;
   [[maybe_unused]] int port_ = 0;
   std::atomic<bool> run_{false};
   std::thread publisherThread_;
-  Common::Logger logger_;
+  common::Logger logger_;
 
   std::string time_str_;
 };
 
-}  // namespace Exchange
+}  // namespace exchange

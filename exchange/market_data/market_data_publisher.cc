@@ -2,11 +2,11 @@
 
 #include "../common/logging.h"
 
-namespace Exchange {
+namespace exchange {
 
-MarketDataPublisher::MarketDataPublisher(MEMarketUpdateLFQueue* marketUpdates,
-                                         const std::string& multicastAddr,
-                                         int port)
+MarketDataPublisher::MarketDataPublisher(
+    MatchingEngineMarketUpdateLFQueue* marketUpdates,
+    const std::string& multicastAddr, int port)
     : marketUpdates_(marketUpdates),
       multicastAddr_(multicastAddr),
       port_(port),
@@ -33,4 +33,4 @@ void MarketDataPublisher::run() {
   }
 }
 
-}  // namespace Exchange
+}  // namespace exchange
