@@ -48,15 +48,15 @@ struct MatchingEngineClientResponse {
     oss << "MatchingEngineClientResponse"
         << " ["
         << "type:" << clientResponseTypeToString(type_)
-        << " client:" << common::clientIdToString(client_id_)
-        << " symbol:" << common::symbolIdToString(symbol_id_)
-        << " coid:" << common::orderIdToString(client_order_id_)
-        << " moid:" << common::orderIdToString(market_order_id_)
-        << " side:" << common::sideToString(side_)
-        << " executed_quantity:" << common::quantityToString(executed_quantity_)
+        << " client:" << common::ClientIdToString(client_id_)
+        << " symbol:" << common::SymbolIdToString(symbol_id_)
+        << " coid:" << common::OrderIdToString(client_order_id_)
+        << " moid:" << common::OrderIdToString(market_order_id_)
+        << " side:" << common::SideToString(side_)
+        << " executed_quantity:" << common::QuantityToString(executed_quantity_)
         << " remaining_quantity:"
-        << common::quantityToString(remaining_quantity_)
-        << " price:" << common::priceToString(price_) << "]";
+        << common::QuantityToString(remaining_quantity_)
+        << " price:" << common::PriceToString(price_) << "]";
     return oss.str();
   }
 };

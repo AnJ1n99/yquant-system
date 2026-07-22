@@ -9,7 +9,7 @@
 
 namespace common {
 // Constants used across the ecosystem to represent upper bounds on various
-// containers. Trading instruments / TickerIds from [0, kMaxSymbols].
+// containers. Trading instruments / SymbolIds from [0, kMaxSymbols).
 
 constexpr size_t kMaxSymbols = 8;
 
@@ -30,7 +30,7 @@ constexpr size_t kMaxPriceLevels = 256;
 using OrderId = uint64_t;
 constexpr auto OrderId_INVALID = std::numeric_limits<OrderId>::max();
 
-inline auto orderIdToString(OrderId order_id) -> std::string {
+inline auto OrderIdToString(OrderId order_id) -> std::string {
   if (UNLIKELY(order_id == OrderId_INVALID)) {
     return "INVALID";
   }
@@ -38,11 +38,10 @@ inline auto orderIdToString(OrderId order_id) -> std::string {
   return std::to_string(order_id);
 }
 
-// 股票代码
 using SymbolId = uint32_t;
 constexpr auto SymbolId_INVALID = std::numeric_limits<SymbolId>::max();
 
-inline auto symbolIdToString(SymbolId symbol_id) -> std::string {
+inline auto SymbolIdToString(SymbolId symbol_id) -> std::string {
   if (UNLIKELY(symbol_id == SymbolId_INVALID)) {
     return "INVALID";
   }
@@ -53,7 +52,7 @@ inline auto symbolIdToString(SymbolId symbol_id) -> std::string {
 using ClientId = uint32_t;
 constexpr auto ClientId_INVALID = std::numeric_limits<ClientId>::max();
 
-inline auto clientIdToString(ClientId client_id) -> std::string {
+inline auto ClientIdToString(ClientId client_id) -> std::string {
   if (UNLIKELY(client_id == ClientId_INVALID)) {
     return "INVALID";
   }
@@ -64,7 +63,7 @@ inline auto clientIdToString(ClientId client_id) -> std::string {
 using Price = int64_t;
 constexpr auto Price_INVALID = std::numeric_limits<Price>::max();
 
-inline auto priceToString(Price price) -> std::string {
+inline auto PriceToString(Price price) -> std::string {
   if (UNLIKELY(price == Price_INVALID)) {
     return "INVALID";
   }
@@ -75,7 +74,7 @@ inline auto priceToString(Price price) -> std::string {
 using Quantity = uint32_t;
 constexpr auto Quantity_INVALID = std::numeric_limits<Quantity>::max();
 
-inline auto quantityToString(Quantity quantity) -> std::string {
+inline auto QuantityToString(Quantity quantity) -> std::string {
   if (UNLIKELY(quantity == Quantity_INVALID)) {
     return "INVALID";
   }
@@ -86,7 +85,7 @@ inline auto quantityToString(Quantity quantity) -> std::string {
 // 买卖方向
 enum class Side : int8_t { INVALID = 0, BUY = 1, SELL = -1, MAX = 2 };
 
-inline auto sideToString(Side side) -> std::string {
+inline auto SideToString(Side side) -> std::string {
   switch (side) {
     case Side::BUY:
       return "BUY";
@@ -104,7 +103,7 @@ inline auto sideToString(Side side) -> std::string {
 using Priority = uint64_t;
 constexpr auto Priority_INVALID = std::numeric_limits<Priority>::max();
 
-inline auto priorityToString(Priority priority) -> std::string {
+inline auto PriorityToString(Priority priority) -> std::string {
   if (UNLIKELY(priority == Priority_INVALID)) {
     return "INVALID";
   }

@@ -145,8 +145,12 @@ void MatchingEngineSideBook::addOrder(MatchingEngineOrder* order) noexcept {
     order->next = order;
     order->prev = order;
 
-    ordersAtPrice =
-        price_pool_->allocate(order->price, order, nullptr, nullptr);
+    ordersAtPrice = price_pool_->allocate();
+    *ordersAtPrice = MatchingEngineOrdersAtPrice{
+        .side = order->side,
+        .price = order->price,
+        .first_order = order,
+    };
 
     addOrderAtPrice(ordersAtPrice);
   } else {

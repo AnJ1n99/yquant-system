@@ -54,12 +54,12 @@ struct MatchingEngineClientRequest {  // 实际的客户端请求
     oss << "MatchingEngineClientRequest"
         << " ["
         << "type:" << clientRequestTypeToString(type_)
-        << " client:" << common::clientIdToString(clientId_)
-        << " symbolId:" << common::symbolIdToString(symbolId_)
-        << " oid:" << common::orderIdToString(orderId_)
-        << " side:" << common::sideToString(side_)
-        << " quantity:" << common::quantityToString(quantity_)
-        << " price:" << common::priceToString(price_) << "]";
+        << " client:" << common::ClientIdToString(clientId_)
+        << " symbolId:" << common::SymbolIdToString(symbolId_)
+        << " oid:" << common::OrderIdToString(orderId_)
+        << " side:" << common::SideToString(side_)
+        << " quantity:" << common::QuantityToString(quantity_)
+        << " price:" << common::PriceToString(price_) << "]";
     return oss.str();
   }
 };

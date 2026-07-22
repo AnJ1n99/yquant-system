@@ -67,12 +67,12 @@ struct MatchingEngineMarketUpdate {
     oss << "MatchingEngineMarketUpdate"
         << " ["
         << "type:" << marketUpdateTypeToString(type_)
-        << " symbol:" << common::symbolIdToString(symbolId_)
-        << " orderId:" << common::orderIdToString(orderId_)
-        << " side:" << common::sideToString(side_)
-        << " price:" << common::priceToString(price_)
-        << " quantity:" << common::quantityToString(quantity_)
-        << " priority: " << common::priorityToString(priority_) << "]";
+        << " symbol:" << common::SymbolIdToString(symbolId_)
+        << " orderId:" << common::OrderIdToString(orderId_)
+        << " side:" << common::SideToString(side_)
+        << " price:" << common::PriceToString(price_)
+        << " quantity:" << common::QuantityToString(quantity_)
+        << " priority: " << common::PriorityToString(priority_) << "]";
     return oss.str();
   }
 };
