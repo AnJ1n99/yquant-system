@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <sstream>
 
 #include "../../common/ringBuffer.h"
 #include "../../common/types.h"
 
 namespace exchange {
-enum class ClientResponseType {
+enum class ClientResponseType : uint8_t {
   INVALID = 0,
   ACCEPTED = 1,
   CANCELED = 2,

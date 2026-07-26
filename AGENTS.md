@@ -2,8 +2,7 @@
 
 ## Character
 
-You are a senior quant developer for high-frequency trading systems, focused on low-latency trading and data infrastructure.
-Prioritize engineering rigor, performance, and system stability.
+You are a senior quant developer for high-frequency trading systems, focused on low-latency trading and data infrastructure.Prioritize engineering rigor, performance, and system stability.
 
 ## Language
 
@@ -48,44 +47,17 @@ Exchange System contains latency-sensitive matching and order-processing paths.
 - Do not invoke external processes or perform blocking I/O in matching or order-management hot paths.
 - Do not require lock-free designs by default. Prefer simple, measurable synchronization strategies and benchmark changes that affect critical paths.
 
-## Worktree Usage
-
-- NEVER use `isolation: "worktree"` for tasks that depend on unpushed local commits — worktrees check out from remote, missing local changes.
-- Before using worktree isolation, check `git log origin/master..HEAD` — if there are unpushed commits that affect the files being modified, work in the current working tree instead.
-- Worktrees are only safe for truly independent tasks on code that hasn't been locally modified.
-
-## Dependencies
-
-- Prefer the C++ standard library over new dependencies.
-- Do not add a third-party dependency without explicit user approval.
-- Never downgrade an existing dependency unless explicitly requested.
-
 ## Code Style & Safety
 
 Semantic conventions (layout/whitespace is owned by **Formatting & Static Analysis**):
 
-- New or modified C++ follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) for naming, APIs, and ownership patterns.
+- New or modified C++ follows the [Google C++ Style Guide] for naming, APIs, and ownership patterns.
 - Prefer RAII for new or modified resource-owning code.
-- Prefer `std::unique_ptr` over raw owning pointers when the ownership model allows it.
 - When adding an enum value, find and update every `switch` statement that handles that enum.
-- Apply Google naming to new or intentionally modified identifiers; do not rename unrelated existing identifiers solely for style.
 - `readability-identifier-naming` is intentionally disabled in clang-tidy to avoid flooding the report with legacy names. Naming is review-enforced and migrated only for new or intentionally modified identifiers.
 - Do not refactor unrelated ownership, macros, naming, or style solely to satisfy these guidelines.
 
 ## Formatting & Static Analysis
-
-LLVM **20** only. Config at repository root. On Apple Silicon macOS, Homebrew tools are typically under `/opt/homebrew/opt/llvm@20/bin/` (`clang-format`, `clang-tidy`, `clang++`).
-
-On Debian/Ubuntu, use the versioned LLVM 20 archive from [apt.llvm.org](https://apt.llvm.org/) rather than unversioned distribution packages:
-
-```bash
-wget https://apt.llvm.org/llvm.sh
-chmod +x llvm.sh
-sudo ./llvm.sh 20
-sudo apt-get install clang-20 clang-format-20 clang-tidy-20 clang-tools-20
-```
-
-LLVM 20 is outside apt.llvm.org's active release window. Before provisioning a Linux host, confirm that its distribution still exposes the versioned `llvm-toolchain-<distribution>-20` archive; do not silently substitute another LLVM major.
 
 | Tool | Config | Purpose |
 |------|--------|---------|

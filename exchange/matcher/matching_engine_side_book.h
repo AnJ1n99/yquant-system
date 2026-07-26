@@ -15,8 +15,8 @@ namespace exchange {
 class MatchingEngineSideBook {
   friend class MatchingEngineOrderBook;
 
- public:
-  explicit MatchingEngineSideBook(
+public:
+  MatchingEngineSideBook(
       common::Side side, common::MemPool<MatchingEngineOrder>* orderPool,
       common::MemPool<MatchingEngineOrdersAtPrice>* pricePool);
 
