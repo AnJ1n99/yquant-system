@@ -83,7 +83,7 @@ inline auto QuantityToString(Quantity quantity) -> std::string {
 }
 
 // 买卖方向
-enum class Side : int8_t { INVALID = 0, BUY = 1, SELL = -1, MAX = 2 };
+enum class Side : uint8_t { INVALID = 0, BUY = 1, SELL = 2 };
 
 inline auto SideToString(Side side) -> std::string {
   switch (side) {
@@ -93,8 +93,6 @@ inline auto SideToString(Side side) -> std::string {
       return "SELL";
     case Side::INVALID:
       return "INVALID";
-    case Side::MAX:
-      return "MAX";
   }
   return "UNKNOWN";
 }

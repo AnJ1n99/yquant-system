@@ -79,9 +79,16 @@ void MatchingEngineOrderBook::add(ClientId clientId, OrderId clientOrderId,
     auto& sideBook = getSideBook(side);
     const auto priority = sideBook.getNextPriority(price);
 
-    auto order = order_pool_.allocate(clientId, clientOrderId, newMarketOrderId,
-                                      symbolId, side, price, remaining_quantity,
-                                      priority);
+    auto order = order_pool_.allocate(MatchingEngineOrder{
+        .side = side,
+        .price = price,
+        .client_id = clientId,
+        .client_order_id = clientOrderId,
+        .market_order_id = newMarketOrderId,
+        .symbol_id = symbolId,
+        .remaining_quantity = remaining_quantity,
+        .priority = priority,
+    });
 
     // cidOidToOrder_ 写入在 MatchingEngineOrderBook 层，因为是共享资源
     auto& orderMap = cidOidToOrder_[clientId];
@@ -161,9 +168,16 @@ Quantity MatchingEngineOrderBook::checkForMatch(
     ClientId clientId, OrderId clientOrderId, SymbolId symbolId, Side side,
     Price price, Quantity quantity, OrderId marketOrderId) noexcept {
   // 在栈上构造主动订单对象（不入簿，仅用于撮合）
-  MatchingEngineOrder activeOrder(clientId, clientOrderId, marketOrderId,
-                                  symbolId, side, price, quantity,
-                                  Priority_INVALID);
+  MatchingEngineOrder activeOrder{
+      .side = side,
+      .price = price,
+      .client_id = clientId,
+      .client_order_id = clientOrderId,
+      .market_order_id = marketOrderId,
+      .symbol_id = symbolId,
+      .remaining_quantity = quantity,
+      .priority = Priority_INVALID,
+  };
 
   return match(&activeOrder);
 }

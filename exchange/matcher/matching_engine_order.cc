@@ -5,22 +5,6 @@
 
 namespace exchange {
 
-MatchingEngineOrder::MatchingEngineOrder(common::ClientId client_id,
-                                         common::OrderId client_order_id,
-                                         common::OrderId market_order_id,
-                                         common::SymbolId symbol_id,
-                                         common::Side side, common::Price price,
-                                         common::Quantity remaining_quantity,
-                                         common::Priority priority)
-    : client_id(client_id),
-      client_order_id(client_order_id),
-      market_order_id(market_order_id),
-      symbol_id(symbol_id),
-      side(side),
-      price(price),
-      remaining_quantity(remaining_quantity),
-      priority(priority) {}
-
 // 供日志使用
 auto MatchingEngineOrder::toString() const -> std::string {
   std::ostringstream oss;
