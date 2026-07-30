@@ -103,7 +103,7 @@ inline bool join(int fd, const std::string& ip) {
 
   const auto ip =
       socketCFG.ip_.empty() ? getIfaceIP(socketCFG.iface_) : socketCFG.ip_;
-  getCurrentTimeStr(time_str);
+  GetCurrentTimeStr(time_str);
   logger.log("%:% %() % cfg:%\n", __FILE__, __LINE__, __FUNCTION__, time_str,
              socketCFG.toString());
 

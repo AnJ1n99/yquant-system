@@ -35,7 +35,7 @@ class OrderManager {
   auto
   run() noexcept {  // 该函数在独立线程中持续运行，负责将来自交易系统的响应消息通过
                     // TCP 发送给客户端，并保证消息顺序正确
-    common::getCurrentTimeStr(time_str_);
+    common::GetCurrentTimeStr(time_str_);
     logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, time_str_);
 
     while (run_) {
@@ -49,7 +49,7 @@ class OrderManager {
 
         auto& nextOutgoingSeqNum =
             cidNextOutgoingSeqNum[clientResponse->client_id_];
-        common::getCurrentTimeStr(time_str_);
+        common::GetCurrentTimeStr(time_str_);
         logger.log("%:% %() % Processing cid:% seq:% %\n", __FILE__, __LINE__,
                    __FUNCTION__, time_str_, clientResponse->client_id_,
                    nextOutgoingSeqNum, clientResponse->toString());
@@ -81,7 +81,7 @@ class OrderManager {
   //   - rxTime: 接收数据的时间戳（纳秒）
   auto recvCallback(common::TCPSocket* socket, common::Nanos rxTime) noexcept {
     TTT_MEASURE(T1_OrderManager, logger);
-    common::getCurrentTimeStr(time_str_);
+    common::GetCurrentTimeStr(time_str_);
     logger.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__,
                __FUNCTION__, time_str_, socket->socket_fd,
                socket->nextRevVaildIndex_, rxTime);
@@ -95,7 +95,7 @@ class OrderManager {
            i += sizeof(OrderManagerClientRequest)) {
         auto request = reinterpret_cast<const OrderManagerClientRequest*>(
             socket->inbound_data_.data() + i);
-        common::getCurrentTimeStr(time_str_);
+        common::GetCurrentTimeStr(time_str_);
         logger.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__,
                    time_str_, request->toString());
 
@@ -114,7 +114,7 @@ class OrderManager {
                                 .clientId_] !=
             socket) {  // TODO - change this to send a reject back to the
                        // client.
-          common::getCurrentTimeStr(time_str_);
+          common::GetCurrentTimeStr(time_str_);
           logger.log(
               "%:% %() % Received ClientRequest from ClientId:% on different "
               "socket:% expected:%\n",
@@ -132,7 +132,7 @@ class OrderManager {
         // 验证序列号：确保请求按顺序到达
         if (request->seqNum != nextExpSeqNum) {  // TODO - change this to send a
                                                  // reject back to the client.
-          common::getCurrentTimeStr(time_str_);
+          common::GetCurrentTimeStr(time_str_);
           logger.log(
               "%:% %() % Incorrect sequence number. ClientId:% SeqNum "
               "expected:% received:%\n",

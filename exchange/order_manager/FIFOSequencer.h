@@ -41,7 +41,7 @@ class FIFOSequencer {
   auto sequenceAndPublish() {
     if (UNLIKELY(!pendingSize)) return;
 
-    common::getCurrentTimeStr(time_str_);
+    common::GetCurrentTimeStr(time_str_);
     logger_->log("%:% %() % Processing % requests.\n", __FILE__, __LINE__,
                  __FUNCTION__, time_str_, pendingSize);
 
@@ -51,7 +51,7 @@ class FIFOSequencer {
     for (size_t i = 0; i < pendingSize; ++i) {
       const auto& client_request = pendingClientRequests.at(i);
 
-      common::getCurrentTimeStr(time_str_);
+      common::GetCurrentTimeStr(time_str_);
       logger_->log("%:% %() % Writing RX: % Req % to FIFO.\n", __FILE__,
                    __LINE__, __FUNCTION__, time_str_,
                    client_request.receive_time,

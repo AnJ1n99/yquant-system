@@ -109,9 +109,9 @@ class Logger final {
 
   // 确保后台日志线程在对象销毁前完成所有待写入的日志，并正确释放资源
   ~Logger() {
-    std::string timeStr;
-    getCurrentTimeStr(timeStr);
-    std::cerr << timeStr << " Flushing and closing Logger for " << fileName_
+    std::string time_str;
+    GetCurrentTimeStr(time_str);
+    std::cerr << time_str << " Flushing and closing Logger for " << fileName_
               << std::endl;
 
     while (queue_.size()) {
@@ -122,8 +122,8 @@ class Logger final {
     loggerThread_->join();
 
     file_.close();
-    getCurrentTimeStr(timeStr);
-    std::cerr << timeStr << " Logger for " << fileName_ << " exiting."
+    GetCurrentTimeStr(time_str);
+    std::cerr << time_str << " Logger for " << fileName_ << " exiting."
               << std::endl;
   }
 

@@ -51,11 +51,12 @@ Exchange System contains latency-sensitive matching and order-processing paths.
 
 Semantic conventions (layout/whitespace is owned by **Formatting & Static Analysis**):
 
-- New or modified C++ follows the [Google C++ Style Guide] for naming, APIs, and ownership patterns.
+- C++ follows the [Google C++ Style Guide] for naming, APIs, and ownership patterns (functions/types PascalCase, variables/data members snake_case).
+- Prefer aligning identifiers in the edit scope to Google naming; intentional naming migrations (including wider renames) are allowed.
 - Prefer RAII for new or modified resource-owning code.
 - When adding an enum value, find and update every `switch` statement that handles that enum.
-- `readability-identifier-naming` is intentionally disabled in clang-tidy to avoid flooding the report with legacy names. Naming is review-enforced and migrated only for new or intentionally modified identifiers.
-- Do not refactor unrelated ownership, macros, naming, or style solely to satisfy these guidelines.
+- `readability-identifier-naming` is intentionally disabled in clang-tidy to avoid flooding the report with legacy names; naming is review-enforced.
+- Do not refactor unrelated ownership or macros solely to satisfy these guidelines.
 
 ## Formatting & Static Analysis
 

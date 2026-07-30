@@ -10,14 +10,15 @@ auto MatchingEngineOrder::toString() const -> std::string {
   std::ostringstream oss;
   oss << "MatchingEngineOrder"
       << " ["
-      << "clientId:" << common::ClientIdToString(client_id)
-      << " clientOId:" << common::OrderIdToString(client_order_id)
-      << " marketOId:" << common::OrderIdToString(market_order_id)
-      << " symbolId:" << common::SymbolIdToString(symbol_id)
-      << " side:" << common::SideToString(side)
-      << " price:" << common::PriceToString(price)
+      << " clientId:"           << common::ClientIdToString(client_id)
+      << " clientOId:"          << common::OrderIdToString(client_order_id)
+      << " marketOId:"          << common::OrderIdToString(market_order_id)
+      << " symbolId:"           << common::SymbolIdToString(symbol_id)
+      << " side:"               << common::SideToString(side)
+      << " price:"              << common::PriceToString(price)
       << " remaining_quantity:" << common::QuantityToString(remaining_quantity)
-      << " priority:" << common::PriorityToString(priority) << "]";
+      << " priority:"           << common::PriorityToString(priority)
+      << "]";
   return oss.str();
 }
 
@@ -25,9 +26,10 @@ auto MatchingEngineOrdersAtPrice::toString() const -> std::string {
   std::ostringstream oss;
   oss << "MatchingEngineOrdersAtPrice"
       << " ["
-      << "side:" << common::SideToString(side) << " "
-      << "price:" << common::PriceToString(price) << " "
-      << " firstOrder:" << (first_order ? "exists" : "nullptr") << "]";
+      << " side:"       << common::SideToString(side)   << " "
+      << " price:"      << common::PriceToString(price) << " "
+      << " firstOrder:" << (first_order ? "exists" : "nullptr") 
+      << "]";
   return oss.str();
 }
 

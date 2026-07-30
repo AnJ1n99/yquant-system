@@ -56,13 +56,13 @@ auto TCPServer::poll() noexcept -> void {
     // check for new connections
     if (event.events & EPOLLIN) {
       if (socket == &listener_socket) {
-        getCurrentTimeStr(time_str_);
+        GetCurrentTimeStr(time_str_);
         logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__,
                     __FUNCTION__, time_str_, socket->socket_fd_);
         haveNewConnection = true;
         continue;
       }
-      getCurrentTimeStr(time_str_);
+      GetCurrentTimeStr(time_str_);
       logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
       // 没有此 socket
@@ -73,7 +73,7 @@ auto TCPServer::poll() noexcept -> void {
     }
 
     if (event.events & EPOLLOUT) {
-      getCurrentTimeStr(time_str_);
+      GetCurrentTimeStr(time_str_);
       logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
       // 没有此 socket
@@ -84,7 +84,7 @@ auto TCPServer::poll() noexcept -> void {
     }
 
     if (event.events & (EPOLLERR | EPOLLHUP)) {
-      getCurrentTimeStr(time_str_);
+      GetCurrentTimeStr(time_str_);
       logger_.log("%:% %() % EPOLLERR|EPOLLHUP socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
       if (std::find(recvSockets.begin(), recvSockets.end(), socket) ==
@@ -96,7 +96,7 @@ auto TCPServer::poll() noexcept -> void {
 
   // accept a new connection, create a TCPSocket and add it to our containers
   while (haveNewConnection) {
-    getCurrentTimeStr(time_str_);
+    GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__,
                 __FUNCTION__, time_str_);
     sockaddr_storage addr;
@@ -109,7 +109,7 @@ auto TCPServer::poll() noexcept -> void {
            "setNonBlocking() or disableNagle() failed on socket:" +
                std::to_string(fd));
 
-    getCurrentTimeStr(time_str_);
+    GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % accepted socket:%\n", __FILE__, __LINE__,
                 __FUNCTION__, time_str_, fd);
 

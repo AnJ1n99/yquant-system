@@ -80,7 +80,7 @@ void MatchingEngine::processClientRequest(
 }
 
 void MatchingEngine::run() {
-  common::getCurrentTimeStr(time_str_);
+  common::GetCurrentTimeStr(time_str_);
   logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__,
              "MatchingEngine thread started at " + time_str_);
 
@@ -92,7 +92,7 @@ void MatchingEngine::run() {
       TTT_MEASURE(T3_MatchingEngine_LFQueue_read, logger);  // 测量队列读取时间
 
       // 记录日志
-      common::getCurrentTimeStr(time_str_);
+      common::GetCurrentTimeStr(time_str_);
       logger.log("%:% %() % Processing request: %\n", __FILE__, __LINE__,
                  __FUNCTION__, time_str_, client_request->toString());
 
@@ -112,7 +112,7 @@ void MatchingEngine::run() {
 
 void MatchingEngine::sendMarketUpdate(
     const MatchingEngineMarketUpdate* update) noexcept {
-  common::getCurrentTimeStr(time_str_);
+  common::GetCurrentTimeStr(time_str_);
   logger.log("%:% %() % Sending market update: %\n", __FILE__, __LINE__,
              __FUNCTION__, time_str_, update->toString());
 
@@ -124,7 +124,7 @@ void MatchingEngine::sendMarketUpdate(
 
 void MatchingEngine::sendClientResponse(
     const MatchingEngineClientResponse* response) noexcept {
-  common::getCurrentTimeStr(time_str_);
+  common::GetCurrentTimeStr(time_str_);
   logger.log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
              response->toString());
   // 写入客户端响应队列

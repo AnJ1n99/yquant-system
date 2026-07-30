@@ -69,7 +69,7 @@ class TCPSocket {
   // Function wrapper to callback when there is data to be processed.
   std::function<void(TCPSocket* s, Nanos rx_time)> recv_callback = nullptr;
 
-  std::string timeStr_;
+  std::string time_str_;
   Logger& logger_;  // 引用需要在初始化函数构造
 };
 }  // namespace common

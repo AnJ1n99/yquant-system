@@ -33,9 +33,9 @@ auto McastSocket::sendAndRecv() noexcept -> bool {
                              McastBufferSize - nextRcvValidIndex, MSG_DONTWAIT);
   if (n_rcv > 0) {
     nextRcvValidIndex += n_rcv;
-    getCurrentTimeStr(timeStr);
+    GetCurrentTimeStr(time_str_);
     logger.log("%:% %() % read socket:% len:%\n", __FILE__, __LINE__,
-               __FUNCTION__, timeStr, socketFd, nextRcvValidIndex);
+               __FUNCTION__, time_str_, socketFd, nextRcvValidIndex);
     recvCallback(this);
   }
 
@@ -43,9 +43,9 @@ auto McastSocket::sendAndRecv() noexcept -> bool {
   if (nextSendValidIndex > 0) {
     ssize_t n = ::send(socketFd, outboundData.data(), nextSendValidIndex,
                        MSG_DONTWAIT | MSG_NOSIGNAL);
-    getCurrentTimeStr(timeStr);
+    GetCurrentTimeStr(time_str_);
     logger.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__,
-               __FUNCTION__, timeStr, socketFd, n);
+               __FUNCTION__, time_str_, socketFd, n);
   }
   nextSendValidIndex = 0;
 

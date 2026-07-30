@@ -57,7 +57,7 @@ class McastSocket {
   /// Function wrapper for the method to call when data is read.
   std::function<void(McastSocket* s)> recvCallback = nullptr;
 
-  std::string timeStr;
+  std::string time_str_;
   Logger& logger;
 };
 }  // namespace common

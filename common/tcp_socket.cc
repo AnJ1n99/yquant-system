@@ -50,12 +50,12 @@ auto TCPSocket::sendAndRecv() noexcept -> bool {
                    timeKernel.tv_usec * NANOS_TO_MICROS;
     }
 
-    const auto userTime = getCurrentNanos();
+    const auto userTime = GetCurrentNanos();
 
     // 据包到达网卡到代码开始处理它”之间的软件处理延迟-> userTime - kernelTime
-    getCurrentTimeStr(timeStr_);
+    GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % read socket:% len:% utime:% ktime:% diff:%\n",
-                __FILE__, __LINE__, __FUNCTION__, timeStr_, socket_fd,
+                __FILE__, __LINE__, __FUNCTION__, time_str_, socket_fd,
                 nextRevVaildIndex_, userTime, kernelTime,
                 (userTime - kernelTime));
 
@@ -65,9 +65,9 @@ auto TCPSocket::sendAndRecv() noexcept -> bool {
     // 非阻塞调用，发送数据
     const auto n = ::send(socket_fd, outbound_data_.data(), nextSendVaildIndex_,
                           MSG_DONTWAIT | MSG_NOSIGNAL);
-    getCurrentTimeStr(timeStr_);
+    GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__,
-                __FUNCTION__, timeStr_, socket_fd, n);
+                __FUNCTION__, time_str_, socket_fd, n);
   }
 
   nextSendVaildIndex_ = 0;

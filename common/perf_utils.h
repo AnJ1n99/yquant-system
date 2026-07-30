@@ -32,7 +32,7 @@ inline auto rdtsc() { return static_cast<uint64_t>(0); }
 #define END_MEASURE(TAG, LOGGER)                                \
   do {                                                          \
     auto end = common::rdtsc();                                 \
-    common::getCurrentTimeStr(time_str_);                       \
+    common::GetCurrentTimeStr(time_str_);                       \
     LOGGER.log("% RDTSC " #TAG " %\n", time_str_, (end - TAG)); \
   } while (false)
 
@@ -40,8 +40,8 @@ inline auto rdtsc() { return static_cast<uint64_t>(0); }
 // 分析多个事件发生的先后顺序或绝对时间点（Time-To-Tick）
 #define TTT_MEASURE(TAG, LOGGER)                      \
   do {                                                \
-    const auto TAG = common::getCurrentNanos();       \
-    common::getCurrentTimeStr(time_str_);             \
+    const auto TAG = common::GetCurrentNanos();       \
+    common::GetCurrentTimeStr(time_str_);             \
     LOGGER.log("% TTT " #TAG " %\n", time_str_, TAG); \
   } while (false)
 }  // namespace common
