@@ -21,7 +21,7 @@ constexpr size_t kMaxMarketUpdates = 256 * 1024;
 // Maximum number of clients supported by the system.
 constexpr size_t kMaxNumClients = 256;
 
-// max number of orders per trading clients
+// max number of orders per trading instrument
 constexpr size_t kMaxOrderIds = 1024 * 1024;
 
 // Maximum price level depth in the order books.
