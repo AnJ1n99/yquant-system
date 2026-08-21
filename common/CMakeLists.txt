@@ -38,4 +38,4 @@ target_sources(common ${COMMON_USAGE_SCOPE}
     ${CMAKE_CURRENT_SOURCE_DIR}/types.h
 )
 
-target_compile_features(common ${COMMON_USAGE_SCOPE} cxx_std_20)
+target_compile_features(common ${COMMON_USAGE_SCOPE} cxx_std_23)
