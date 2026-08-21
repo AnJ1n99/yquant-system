@@ -70,7 +70,8 @@ struct OrderManagerClientResponse {
     std::ostringstream oss;
     oss << "OrderManagerClientResponse"
         << " ["
-        << "seq:" << seqNum << " " << matching_engine_client_response.toString()
+        << "seq:" << seqNum 
+        << " " << matching_engine_client_response.toString()
         << "]";
     return oss.str();
   }

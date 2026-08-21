@@ -9,8 +9,8 @@
 
 namespace exchange {
 enum class ClientRequestType : uint8_t {
-  INVAILD = 0,
-  NEW = 1,
+  INVAILD  = 0,
+  NEW      = 1,
   CANCELED = 2,
 };
 
@@ -44,22 +44,22 @@ struct MatchingEngineClientRequest {  // 实际的客户端请求
   // 初始化示例 - 表示一个未初始化的订单结构
   common::ClientId clientId_ = common::ClientId_INVALID;  // 客户端
   common::SymbolId symbolId_ = common::SymbolId_INVALID;  // 股票id
-  common::OrderId orderId_ = common::OrderId_INVALID;     // 订单
-  common::Side side_ = common::Side::INVALID;             // 买卖
-  common::Price price_ = common::Price_INVALID;           // 价格
+  common::OrderId orderId_   = common::OrderId_INVALID;     // 订单
+  common::Side side_         = common::Side::INVALID;             // 买卖
+  common::Price price_       = common::Price_INVALID;           // 价格
   common::Quantity quantity_ = common::Quantity_INVALID;  // 数量
 
   auto toString() const {
     std::ostringstream oss;
     oss << "MatchingEngineClientRequest"
         << " ["
-        << "type:" << clientRequestTypeToString(type_)
-        << " client:" << common::ClientIdToString(clientId_)
+        << "type:"      << clientRequestTypeToString(type_)
+        << " client:"   << common::ClientIdToString(clientId_)
         << " symbolId:" << common::SymbolIdToString(symbolId_)
-        << " oid:" << common::OrderIdToString(orderId_)
-        << " side:" << common::SideToString(side_)
+        << " oid:"      << common::OrderIdToString(orderId_)
+        << " side:"     << common::SideToString(side_)
         << " quantity:" << common::QuantityToString(quantity_)
-        << " price:" << common::PriceToString(price_) << "]";
+        << " price:"    << common::PriceToString(price_) << "]";
     return oss.str();
   }
 };
