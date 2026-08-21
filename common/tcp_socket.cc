@@ -14,13 +14,13 @@ auto TCPSocket::connect(const std::string& ip, const std::string& iface,
                         int port, bool isListening) -> int {
   // Note that needs_so_timestamp=true for FIFOSequencer.
   const SocketCfg socketCFG{ip, iface, port, false, isListening, true};
-  socket_fd = createSocket(logger_, socketCFG);
+  socket_fd_ = createSocket(logger_, socketCFG);
 
-  socket_attrib.sin_addr.s_addr = INADDR_ANY;
-  socket_attrib.sin_port = htons(port);
-  socket_attrib.sin_family = AF_INET;
+  socket_attrib_.sin_addr.s_addr = INADDR_ANY;
+  socket_attrib_.sin_port = htons(port);
+  socket_attrib_.sin_family = AF_INET;
 
-  return socket_fd;
+  return socket_fd_;
 }
 
 // 执行实际的 I/O 操作
@@ -31,16 +31,16 @@ auto TCPSocket::sendAndRecv() noexcept -> bool {
 
   // struct iovec 是用于分散/聚集 I/O（scatter/gather I/O）的重要数据结构，
   // 允许在一次系统调用中读写多个不连续的内存缓冲区 允许未来扩展为多段缓冲区
-  iovec iov{inbound_data_.data() + nextRevVaildIndex_,
-            TCPBufferSize - nextRevVaildIndex_};
-  msghdr msg{&socket_attrib, sizeof(socket_attrib), &iov, 1,
-             ctrl,           sizeof(ctrl),          0};
+  iovec iov{inbound_data_.data() + next_recv_valid_index_,
+            TCPBufferSize - next_recv_valid_index_};
+  msghdr msg{
+      &socket_attrib_, sizeof(socket_attrib_), &iov, 1, ctrl, sizeof(ctrl), 0};
 
   // 非阻塞调用，读取可用数据
-  const auto readSize = recvmsg(socket_fd, &msg, MSG_DONTWAIT);
+  const auto readSize = recvmsg(socket_fd_, &msg, MSG_DONTWAIT);
 
   if (readSize > 0) {
-    nextRevVaildIndex_ += readSize;
+    next_recv_valid_index_ += readSize;
     Nanos kernelTime = 0;
     timeval timeKernel;
     if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMP &&
@@ -55,28 +55,28 @@ auto TCPSocket::sendAndRecv() noexcept -> bool {
     // 据包到达网卡到代码开始处理它”之间的软件处理延迟-> userTime - kernelTime
     GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % read socket:% len:% utime:% ktime:% diff:%\n",
-                __FILE__, __LINE__, __FUNCTION__, time_str_, socket_fd,
-                nextRevVaildIndex_, userTime, kernelTime,
+                __FILE__, __LINE__, __FUNCTION__, time_str_, socket_fd_,
+                next_recv_valid_index_, userTime, kernelTime,
                 (userTime - kernelTime));
 
-    recv_callback(this, kernelTime);
+    recv_callback_(this, kernelTime);
   }
-  if (nextSendVaildIndex_ > 0) {
+  if (next_send_valid_index_ > 0) {
     // 非阻塞调用，发送数据
-    const auto n = ::send(socket_fd, outbound_data_.data(), nextSendVaildIndex_,
-                          MSG_DONTWAIT | MSG_NOSIGNAL);
+    const auto n = ::send(socket_fd_, outbound_data_.data(),
+                          next_send_valid_index_, MSG_DONTWAIT | MSG_NOSIGNAL);
     GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__,
-                __FUNCTION__, time_str_, socket_fd, n);
+                __FUNCTION__, time_str_, socket_fd_, n);
   }
 
-  nextSendVaildIndex_ = 0;
+  next_send_valid_index_ = 0;
 
   return (readSize > 0);
 }
 
 void TCPSocket::send(const void* data, size_t len) noexcept {
-  memcpy(outbound_data_.data() + nextSendVaildIndex_, data, len);
-  nextSendVaildIndex_ += len;
+  memcpy(outbound_data_.data() + next_send_valid_index_, data, len);
+  next_send_valid_index_ += len;
 }
 }  // namespace common

@@ -22,7 +22,7 @@ OrderManager::OrderManager(ClientRequestLFQueue* clientRequests,
   tcpServer.recv_callback_ = [this](auto socket, auto rx_time) {
     recvCallback(socket, rx_time);
   };
-  tcpServer.recvFinishedCallback_ = [this]() { recvFinishedCallback(); };
+  tcpServer.recv_finish_callback_ = [this]() { recvFinishedCallback(); };
 }
 
 OrderManager::~OrderManager() {

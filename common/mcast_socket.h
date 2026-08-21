@@ -16,9 +16,9 @@ constexpr size_t McastBufferSize = 64 * 1024 * 1024;
 
 class McastSocket {
  public:
-  McastSocket(Logger& logger) : logger(logger) {
-    outboundData.resize(McastBufferSize);
-    inboundData.resize(McastBufferSize);
+  McastSocket(Logger& logger) : logger_(logger) {
+    outbound_data_.resize(McastBufferSize);
+    inbound_data_.resize(McastBufferSize);
   }
 
   /// Initialize multicast socket to read from or publish to a stream.
@@ -40,24 +40,24 @@ class McastSocket {
 
  public:
   auto setRecvCallback(std::function<void(McastSocket* s)> callback) -> void {
-    recvCallback = callback;
+    recv_callback_ = callback;
   }
-  auto getSocketFd() const -> int { return socketFd; }
+  auto getSocketFd() const -> int { return socket_fd_; }
 
  private:
-  int socketFd = -1;
+  int socket_fd_ = -1;
 
   /// Send and receive buffers, typically only one or the other is needed, not
   /// both.
-  std::vector<char> outboundData;
-  size_t nextSendValidIndex = 0;
-  std::vector<char> inboundData;
-  size_t nextRcvValidIndex = 0;
+  std::vector<char> outbound_data_;
+  size_t next_send_valid_index_ = 0;
+  std::vector<char> inbound_data_;
+  size_t next_recv_valid_index_ = 0;
 
   /// Function wrapper for the method to call when data is read.
-  std::function<void(McastSocket* s)> recvCallback = nullptr;
+  std::function<void(McastSocket* s)> recv_callback_ = nullptr;
 
   std::string time_str_;
-  Logger& logger;
+  Logger& logger_;
 };
 }  // namespace common

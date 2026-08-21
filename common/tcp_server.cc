@@ -14,39 +14,39 @@ auto TCPServer::addToEpollList(TCPSocket* socket) {
   epoll_event ev{EPOLLET | EPOLLIN, {reinterpret_cast<void*>(socket)}};
   // 设置边缘触发(EPOLLET)和监听可读事件(EPOLLIN)
   // 将 socket->socket_fd_ 添加到 epoll_fd_ 的监听列表中
-  return !epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket->socket_fd, &ev);
+  return !epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, socket->socket_fd_, &ev);
 }
 
 auto TCPServer::listen(const std::string& iface, int port) -> void {
-  epoll_fd = epoll_create(1);
-  ASSERT(epoll_fd >= 0,
+  epoll_fd_ = epoll_create(1);
+  ASSERT(epoll_fd_ >= 0,
          "epoll_create() failed error:" + std::string(std::strerror(errno)));
 
-  ASSERT(listener_socket.connect("", iface, port, true) >= 0,
+  ASSERT(listener_socket_.connect("", iface, port, true) >= 0,
          "Listener socket failed to connect. iface:" + iface +
              " port:" + std::to_string(port) +
              " error:" + std::string(std::strerror(errno)));
 
-  ASSERT(addToEpollList(&listener_socket),
+  ASSERT(addToEpollList(&listener_socket_),
          "epoll_ctl() failed. error:" + std::string(std::strerror(errno)));
 }
 
 auto TCPServer::sendAndRecv() noexcept -> void {
   auto recv = false;
-  std::for_each(recvSockets.begin(), recvSockets.end(),
+  std::for_each(recv_sockets_.begin(), recv_sockets_.end(),
                 [&](auto socket) { recv |= socket->sendAndRecv(); });
 
   if (recv) {
-    recvFinishCallback();
+    recv_finish_callback_();
   }
 
-  std::for_each(sendSockets.begin(), sendSockets.end(),
+  std::for_each(send_sockets_.begin(), send_sockets_.end(),
                 [](auto socket) { socket->sendAndRecv(); });
 }
 
 auto TCPServer::poll() noexcept -> void {
-  const int maxEvents = 1 + recvSockets.size() + sendSockets.size();
-  const int n = epoll_wait(epoll_fd, events_, maxEvents, 0);
+  const int maxEvents = 1 + recv_sockets_.size() + send_sockets_.size();
+  const int n = epoll_wait(epoll_fd_, events_, maxEvents, 0);
   bool haveNewConnection = false;
 
   for (int i = 0; i < n; i++) {
@@ -55,7 +55,7 @@ auto TCPServer::poll() noexcept -> void {
 
     // check for new connections
     if (event.events & EPOLLIN) {
-      if (socket == &listener_socket) {
+      if (socket == &listener_socket_) {
         GetCurrentTimeStr(time_str_);
         logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__,
                     __FUNCTION__, time_str_, socket->socket_fd_);
@@ -66,9 +66,9 @@ auto TCPServer::poll() noexcept -> void {
       logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
       // 没有此 socket
-      if (std::find(recvSockets.begin(), recvSockets.end(), socket) ==
-          recvSockets.end()) {
-        recvSockets.push_back(socket);
+      if (std::find(recv_sockets_.begin(), recv_sockets_.end(), socket) ==
+          recv_sockets_.end()) {
+        recv_sockets_.push_back(socket);
       }
     }
 
@@ -77,9 +77,9 @@ auto TCPServer::poll() noexcept -> void {
       logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
       // 没有此 socket
-      if (std::find(sendSockets.begin(), sendSockets.end(), socket) ==
-          sendSockets.end()) {
-        sendSockets.push_back(socket);
+      if (std::find(send_sockets_.begin(), send_sockets_.end(), socket) ==
+          send_sockets_.end()) {
+        send_sockets_.push_back(socket);
       }
     }
 
@@ -87,9 +87,9 @@ auto TCPServer::poll() noexcept -> void {
       GetCurrentTimeStr(time_str_);
       logger_.log("%:% %() % EPOLLERR|EPOLLHUP socket:%\n", __FILE__, __LINE__,
                   __FUNCTION__, time_str_, socket->socket_fd_);
-      if (std::find(recvSockets.begin(), recvSockets.end(), socket) ==
-          recvSockets.end()) {
-        recvSockets.push_back(socket);
+      if (std::find(recv_sockets_.begin(), recv_sockets_.end(), socket) ==
+          recv_sockets_.end()) {
+        recv_sockets_.push_back(socket);
       }
     }
   }
@@ -101,7 +101,7 @@ auto TCPServer::poll() noexcept -> void {
                 __FUNCTION__, time_str_);
     sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
-    int fd = accept(listener_socket.socket_fd, (sockaddr*)&addr, &addr_len);
+    int fd = accept(listener_socket_.socket_fd_, (sockaddr*)&addr, &addr_len);
     if (fd < 0) {
       break;
     }
@@ -115,13 +115,13 @@ auto TCPServer::poll() noexcept -> void {
 
     auto socket = new TCPSocket(logger_);
     socket->setSocketFd(fd);
-    socket->setRecvback(recvCallback);
+    socket->setRecvback(recv_callback_);
     ASSERT(addToEpollList(socket),
            "Unable to add socket. error:" + std::string(std::strerror(errno)));
 
-    if (std::find(recvSockets.begin(), recvSockets.end(), socket) ==
-        recvSockets.end()) {
-      recvSockets.push_back(socket);
+    if (std::find(recv_sockets_.begin(), recv_sockets_.end(), socket) ==
+        recv_sockets_.end()) {
+      recv_sockets_.push_back(socket);
     }
   }
 }

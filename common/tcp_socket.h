@@ -41,9 +41,9 @@ class TCPSocket {
   // write outgoing data to the send buffers
   void send(const void* data, size_t len) noexcept;
 
-  auto setSocketFd(int fd) -> void { socket_fd = fd; }
+  auto setSocketFd(int fd) -> void { socket_fd_ = fd; }
   void setRecvback(std::function<void(TCPSocket* s, Nanos rx_time)> callback) {
-    recv_callback = callback;
+    recv_callback_ = callback;
   }
 
   // Deleted default, copy & move constructors and assignment-operators.
@@ -55,19 +55,19 @@ class TCPSocket {
 
  private:
   // File descriptor for the socket
-  int socket_fd = -1;
+  int socket_fd_ = -1;
 
   // Send and receive buffers and trackers for read/write indices
   std::vector<uint8_t> outbound_data_;
-  size_t nextSendVaildIndex_{0};
+  size_t next_send_valid_index_{0};
   std::vector<uint8_t> inbound_data_;
-  size_t nextRevVaildIndex_{0};
+  size_t next_recv_valid_index_{0};
 
   // Socket attributes
-  struct sockaddr_in socket_attrib{};
+  struct sockaddr_in socket_attrib_{};
 
   // Function wrapper to callback when there is data to be processed.
-  std::function<void(TCPSocket* s, Nanos rx_time)> recv_callback = nullptr;
+  std::function<void(TCPSocket* s, Nanos rx_time)> recv_callback_ = nullptr;
 
   std::string time_str_;
   Logger& logger_;  // 引用需要在初始化函数构造

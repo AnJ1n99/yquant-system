@@ -125,28 +125,28 @@ inline bool join(int fd, const std::string& ip) {
   ASSERT(!rc, "getaddrinfo() failed error:" + std::string(gai_strerror(rc)) +
                   std::string(std::strerror(errno)));
 
-  int socketFd = -1;
+  int socket_fd = -1;
   int one = 1;
   for (addrinfo* rp = result; rp; rp = rp->ai_next) {
-    ASSERT((socketFd =
+    ASSERT((socket_fd =
                 socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) != -1,
            "socket() failed. errno :" + std::string(strerror(errno)));
 
-    ASSERT(setNonBlocking(socketFd),
+    ASSERT(setNonBlocking(socket_fd),
            "setNonBlocking() failed. errno :" + std::string(strerror(errno)));
 
     if (!socketCFG.isUdp_) {  // disable Nagle for TCP sockets
-      ASSERT(disableNagle(socketFd),
+      ASSERT(disableNagle(socket_fd),
              "disableNagle() failed. errno :" + std::string(strerror(errno)));
     }
 
     if (!socketCFG.isListening_) {  // establish connection to specified address
-      ASSERT(connect(socketFd, rp->ai_addr, rp->ai_addrlen) != -1,
+      ASSERT(connect(socket_fd, rp->ai_addr, rp->ai_addrlen) != -1,
              "connect() failed. errno :" + std::string(strerror(errno)));
     }
 
     if (socketCFG.isListening_) {
-      ASSERT(setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, &one,
+      ASSERT(setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &one,
                         sizeof(one)) == 0,
              "setsockopt() SO_REUSEADDR failed. errno :" +
                  std::string(strerror(errno)));
@@ -156,7 +156,7 @@ inline bool join(int fd, const std::string& ip) {
       // bind to the specified port number
       const sockaddr_in addr{
           AF_INET, htons(socketCFG.port_), {htonl(INADDR_ANY)}, {}};
-      ASSERT(bind(socketFd,
+      ASSERT(bind(socket_fd,
                   socketCFG.isUdp_ ? reinterpret_cast<const sockaddr*>(&addr)
                                    : rp->ai_addr,
                   sizeof(addr)) == 0,
@@ -165,15 +165,15 @@ inline bool join(int fd, const std::string& ip) {
 
     if (!socketCFG.isUdp_ &&
         socketCFG.isListening_) {  // listen for incoming TCP connections.
-      ASSERT(listen(socketFd, MaxTCPServerBacklog) == 0,
+      ASSERT(listen(socket_fd, MaxTCPServerBacklog) == 0,
              "listen() failed. errno:" + std::string(strerror(errno)));
     }
 
     if (socketCFG.needsSoTimestamp_) {  // enable software receive timestamps.
-      ASSERT(setSOTimestamp(socketFd),
+      ASSERT(setSOTimestamp(socket_fd),
              "setSOTimestamp() failed. errno:" + std::string(strerror(errno)));
     }
   }
-  return socketFd;
+  return socket_fd;
 }
 }  // namespace common

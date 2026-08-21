@@ -83,15 +83,15 @@ class OrderManager {
     TTT_MEASURE(T1_OrderManager, logger);
     common::GetCurrentTimeStr(time_str_);
     logger.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__,
-               __FUNCTION__, time_str_, socket->socket_fd,
-               socket->nextRevVaildIndex_, rxTime);
+               __FUNCTION__, time_str_, socket->socket_fd_,
+               socket->next_recv_valid_index_, rxTime);
 
     // 检查接收缓冲区是否至少包含一个完整的请求（OrderManagerClientRequest结构体）
-    if (socket->nextRevVaildIndex_ >= sizeof(OrderManagerClientRequest)) {
+    if (socket->next_recv_valid_index_ >= sizeof(OrderManagerClientRequest)) {
       size_t i = 0;
       // 遍历接收缓冲区中的所有完整请求
-      for (;
-           i + sizeof(OrderManagerClientRequest) <= socket->nextRevVaildIndex_;
+      for (; i + sizeof(OrderManagerClientRequest) <=
+             socket->next_recv_valid_index_;
            i += sizeof(OrderManagerClientRequest)) {
         auto request = reinterpret_cast<const OrderManagerClientRequest*>(
             socket->inbound_data_.data() + i);
@@ -120,9 +120,9 @@ class OrderManager {
               "socket:% expected:%\n",
               __FILE__, __LINE__, __FUNCTION__, time_str_,
               request->matching_engine_client_request.clientId_,
-              socket->socket_fd,
+              socket->socket_fd_,
               cidTcpSocketMap[request->matching_engine_client_request.clientId_]
-                  ->socket_fd);
+                  ->socket_fd_);
           continue;
         }
 
@@ -154,8 +154,8 @@ class OrderManager {
 
       // 将未处理的剩余数据移动到缓冲区开头，并更新有效数据长度
       memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i,
-             socket->nextRevVaildIndex_ - i);
-      socket->nextRevVaildIndex_ -= i;
+             socket->next_recv_valid_index_ - i);
+      socket->next_recv_valid_index_ -= i;
     }
   }
 
