@@ -1,7 +1,7 @@
 /*
  交易服务器是一个独立的进程（exchange_main），它充当交易系统中订单处理和市场数据分发的中央枢纽。
  它通过 TCP
- 接收来自多个交易客户端的订单请求，在价格-时间优先级的订单簿中匹配订单，并通过
+ 接收来自多个交易客户端的订单请求，在价格-时间优先级的订单簿中匹配订单， 并通过
  UDP 多播流发布市场更新。
 
  主要职责：
@@ -15,44 +15,53 @@
 
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
+#include <thread>
 
 #include "../common/logging.h"
+#include "../common/time_utils.h"
+#include "market_data/market_data_publisher.h"
 #include "matcher/matching_engine.h"
 #include "order_manager/client_request.h"
 #include "order_manager/client_response.h"
+#include "order_manager/order_manager.h"
 
 // 主要组件，设为全局变量以便信号处理器访问
 common::Logger* logger = nullptr;
+exchange::MatchingEngine* matching_engine = nullptr;
+exchange::MarketDataPublisher* market_data_publisher = nullptr;
+exchange::OrderManager* order_manager = nullptr;
 
 /// 外部信号触发时优雅关闭服务器
 void signal_handler(int) {
-  std::this_thread::sleep_for(
-      std::chrono::seconds(10));  // 等待10秒以确保资源释放
+  using namespace std::literals::chrono_literals;
+  std::this_thread::sleep_for(10s);  // 等待10秒以确保资源释放
 
-  // 释放所有组件资源
+  // 依次释放各组件资源
   delete logger;
   logger = nullptr;
   delete matching_engine;
   matching_engine = nullptr;
   delete market_data_publisher;
   market_data_publisher = nullptr;
-  delete order_server;
-  order_server = nullptr;
+  delete order_manager;
+  order_manager = nullptr;
 
-  std::this_thread::sleep_for(std::chrono::seconds(10));  // 等待释放完成
+  std::this_thread::sleep_for(10s);  // 等待释放完成
 
   exit(EXIT_SUCCESS);
 }
 
-int main(int argc, char** argv) {
+int main() {
   // main logger
   logger = new common::Logger("exchange_main.log");
 
   // 注册信号处理器
+  // crtl+c pkill -2 pid 会优雅关机
   std::signal(SIGINT, signal_handler);
 
-  // 主循环休息时间(ms)
-  const int sleep_time = 100 * 1000;
+  // 主循环轮询间隔（单位写进类型里，避免再出现量纲歧义）
+  constexpr auto kMainLoopSleep = std::chrono::milliseconds(100);
 
   // 无锁队列，用于订单服务器与匹配引擎、匹配引擎与市场数据发布器之间的通信
   exchange::ClientRequestLFQueue client_requests(common::kMaxClientUpdates);
@@ -74,5 +83,9 @@ int main(int argc, char** argv) {
 
   // main loop
   while (true) {
+    common::GetCurrentTimeStr(time_str_);
+    logger->log("%:% %() % Sleeping for a few milliseconds..\n", __FILE__,
+                __LINE__, __FUNCTION__, time_str_);
+    std::this_thread::sleep_for(kMainLoopSleep);
   }
 }
