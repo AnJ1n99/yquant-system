@@ -102,7 +102,7 @@ class Logger final {
       : fileName_(fileName), queue_(LOG_QUEUE_SIZE) {
     file_.open(fileName);
     ASSERT(file_.is_open(), "Could not open log file:" + fileName);
-    loggerThread_ = createAndStartThread(-1, "Common/Logger" + fileName_,
+    loggerThread_ = createAndStartThread(-1, "Common/Logger-" + fileName_,
                                          [this]() { flushQueue(); });
     ASSERT(loggerThread_ != nullptr, "Failed to start Logger thread.");
   }
