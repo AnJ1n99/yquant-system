@@ -10,7 +10,7 @@
 #include "../market_data/market_update.h"
 #include "../order_manager/client_request.h"
 #include "../order_manager/client_response.h"
-#include "matching_engine_order_book.h"
+#include "book_core.h"
 
 namespace exchange {
 class MatchingEngine final {
@@ -43,7 +43,7 @@ class MatchingEngine final {
  private:
   // 主运行循环
   void run();
-  // symbol 到 MatchingEngineOrderBook 的哈希映射
+  // symbol 到 BookCore 的直接索引表
   OrderBookHashMap symbol_order_book;
 
   // 无锁队列：

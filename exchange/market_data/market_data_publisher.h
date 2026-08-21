@@ -6,7 +6,7 @@
 
 #include "../common/ringBuffer.h"
 #include "../common/types.h"
-#include "../matcher/matching_engine_order_book.h"
+#include "../matcher/book_core.h"
 #include "../order_manager/client_response.h"
 
 namespace exchange {

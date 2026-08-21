@@ -7,6 +7,8 @@
 #include "../../common/thread_utils.h"
 #include "../../common/time_utils.h"
 
+// TODO: SHARDING
+
 namespace exchange {
 
 MatchingEngine::MatchingEngine(
@@ -17,9 +19,10 @@ MatchingEngine::MatchingEngine(
       outgoing_client_responses(outgoingResponses),
       outgoing_market_updates(outgoingUpdates),
       logger("MatchingEngine.log") {
-  // Initialize the matching engine with the provided queues
+  // 使用传入的队列初始化撮合引擎。在标的拥有各自的参考价格之前，
+  // 所有订单簿共用同一个价格网格。
   for (size_t i = 0; i < symbol_order_book.size(); ++i) {
-    symbol_order_book[i] = new MatchingEngineOrderBook(i, this, &logger);
+    symbol_order_book[i] = new BookCore(i, kDefaultPriceBand, this, &logger);
   }
 }
 
@@ -61,15 +64,15 @@ void MatchingEngine::processClientRequest(
   switch (client_request->type_) {
     case ClientRequestType::NEW: {
       // 添加订单刀订单薄
-      START_MEASURE(Exchange_MatchingEngineOrderBook_add);
-      order_book->add(client_request->clientId_, client_request->orderId_,
-                      client_request->symbolId_, client_request->side_,
-                      client_request->price_, client_request->quantity_);
-      END_MEASURE(Exchange_MatchingEngineOrderBook_add, logger);
+      START_MEASURE(Exchange_BookCore_Add);
+      order_book->Add(client_request->clientId_, client_request->orderId_,
+                      client_request->side_, client_request->price_,
+                      client_request->quantity_);
+      END_MEASURE(Exchange_BookCore_Add, logger);
     } break;
     case ClientRequestType::CANCELED: {
       START_MEASURE(Exchange_MatchingEngine_Cancel);
-      order_book->cancel(client_request->clientId_, client_request->orderId_);
+      order_book->Cancel(client_request->clientId_, client_request->orderId_);
       END_MEASURE(Exchange_MatchingEngine_Cancel, logger);
     } break;
     default: {

@@ -24,8 +24,14 @@ constexpr size_t kMaxNumClients = 256;
 // max number of orders per trading instrument
 constexpr size_t kMaxOrderIds = 1024 * 1024;
 
-// Maximum price level depth in the order books.
-constexpr size_t kMaxPriceLevels = 256;
+// 单个订单簿一侧可寻址的价格刻度数。价位按 tick 直接映射（参见
+// exchange::PriceBand），因此该值既是订单簿可报价价格区间的宽度，也是每侧价位
+// 数组的长度。它是编译期常量，因此该数组及其占用位图直接存放在单侧订单簿中；
+// 为适配位图，其值必须保持为 64 的倍数。
+constexpr size_t kMaxPriceLevels = 16 * 1024;
+
+// 布局决策假定的缓存行大小（x86-64 与 arm64）。
+constexpr size_t kCacheLineBytes = 64;
 
 using OrderId = uint64_t;
 constexpr auto OrderId_INVALID = std::numeric_limits<OrderId>::max();

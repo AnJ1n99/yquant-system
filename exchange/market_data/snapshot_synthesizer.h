@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "../common/logging.h"
-#include "../matcher/matching_engine_order.h"
-#include "../matcher/matching_engine_order_book.h"
+#include "../matcher/book_core.h"
+#include "../matcher/price_levels.h"
 #include "market_update.h"
 
 namespace exchange {
