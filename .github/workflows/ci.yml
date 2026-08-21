@@ -7,30 +7,25 @@ on:
     branches: [master]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
+    # 在 Debian 12 容器内构建，与远端构建机保持同一底座。
+    # ubuntu-latest 自带的 GCC 与 libstdc++ 都更新，直接用它跑绿了
+    # 也不能说明构建机（libstdc++ 12）能过。
+    container: debian:12
 
     steps:
+      # 容器里没有 git，actions/checkout 需要它；
+      # clang-19 位于 bookworm/main，无需额外配置 apt 源。
+      - name: 安装工具链
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git ca-certificates clang-19 cmake ninja-build
+
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y g++ cmake
-
-      - name: Configure
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_CXX_COMPILER=g++ \
-            -DBUILD_TESTS=ON
-
-      - name: Build
-        run: cmake --build build --parallel $(nproc)
-
-      - name: Test
-        run: cd build && ctest --output-on-failure
+      # 直接调用与本地相同的脚本：一次构建 Release 与 Debug 两套，
+      # 任一失败即返回非零。
+      - name: 构建 Release 与 Debug
+        run: ./scripts/build.sh
