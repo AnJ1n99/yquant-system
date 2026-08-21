@@ -26,6 +26,15 @@
 #include "order_manager/client_response.h"
 #include "order_manager/order_manager.h"
 
+// 组件配置。
+// OrderManager 的 iface 必须是真实网卡名，start() 会据此 bind 监听端口；
+// 先用 lo 做本机联调，联通外部客户端时再换成 ens17。
+constexpr const char* kOrderManagerIface = "lo";
+constexpr int kOrderManagerPort = 12345;
+// MarketDataPublisher 的地址目前仅由构造函数保存，start() 尚未真正发布。
+constexpr const char* kMarketDataMcastAddr = "239.0.0.1";
+constexpr int kMarketDataMcastPort = 12346;
+
 // 主要组件，设为全局变量以便信号处理器访问
 common::Logger* logger = nullptr;
 exchange::MatchingEngine* matching_engine = nullptr;
@@ -72,14 +81,33 @@ int main() {
   std::string time_str_;
 
   // 启动匹配引擎
+  common::GetCurrentTimeStr(time_str_);
+  logger->log("%:% %() % Starting MatchingEngine..\n", __FILE__, __LINE__,
+              __FUNCTION__, time_str_);
+  matching_engine = new exchange::MatchingEngine(
+      &client_requests, &client_responses, &market_updates);
+  matching_engine->start();
 
   // config market data publisher
+  common::GetCurrentTimeStr(time_str_);
+  logger->log("%:% %() % Starting MarketDataPublisher..\n", __FILE__, __LINE__,
+              __FUNCTION__, time_str_);
+  market_data_publisher = new exchange::MarketDataPublisher(
+      &market_updates, kMarketDataMcastAddr, kMarketDataMcastPort);
 
   // start market data publisher
+  market_data_publisher->start();
 
   // config order server
+  common::GetCurrentTimeStr(time_str_);
+  logger->log("%:% %() % Starting OrderManager..\n", __FILE__, __LINE__,
+              __FUNCTION__, time_str_);
+  order_manager =
+      new exchange::OrderManager(&client_requests, &client_responses,
+                                 kOrderManagerIface, kOrderManagerPort);
 
   // start order server
+  order_manager->start();
 
   // main loop
   while (true) {
