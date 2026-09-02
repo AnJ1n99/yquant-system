@@ -19,7 +19,7 @@ auto OrderNode::toString() const -> std::string {
       << " marketOId:" << common::OrderIdToString(market_order_id)
       << " remaining_quantity:" << common::QuantityToString(remaining_quantity)
       << " priority:" << common::PriorityToString(priority)
-      << " tick:" << (level != nullptr ? std::to_string(level->tick) : "none")
+      << " inBook:" << (level != nullptr ? "yes" : "no")
       << "]";
   return oss.str();
 }
@@ -28,7 +28,6 @@ auto FIFOLevel::toString() const -> std::string {
   std::ostringstream oss;
   oss << "FIFOLevel"
       << " ["
-      << " side:" << common::SideToString(side) << " tick:" << tick
       << " total_quantity:" << total_quantity
       << " next_priority:" << common::PriorityToString(next_priority)
       << " firstOrder:" << (first_order != nullptr ? "exists" : "nullptr")
@@ -43,13 +42,8 @@ PriceLevels::PriceLevels(common::Side side,
   ASSERT(side == common::Side::BUY || side == common::Side::SELL,
          "PriceLevels requires a directional side");
 
-  // 价位是槽位，而非按需分发的对象：每个价位在订单簿生命周期内
-  // 都知道自己的网格位置。
-  for (Tick tick = 0; tick < kTickCount; ++tick) {
-    auto& level = levels_[static_cast<std::size_t>(tick)];
-    level.tick = tick;
-    level.side = side;
-  }
+  // 价位是槽位，而非按需分发的对象：网格位置即数组下标，方向即持有
+  // 它的本实例，因此无需在构造时写入任何身份信息。
 }
 
 OrderNode* PriceLevels::AddOrder(Tick tick, common::ClientId client_id,
@@ -128,8 +122,9 @@ void PriceLevels::RemoveOrder(OrderNode* order) noexcept {
   if (level->IsEmpty()) {
     level->total_quantity = 0;
     level->next_priority = 1;
-    ClearOccupied(level->tick);
-    if (level->tick == best_tick_) {
+    const Tick tick = IndexOf(level);
+    ClearOccupied(tick);
+    if (tick == best_tick_) {
       best_tick_ = FindBestTick();
     }
   }

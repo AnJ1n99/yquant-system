@@ -122,10 +122,11 @@ void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
     return;
   }
 
-  // 方向和价格是节点所在价位的属性，因此节点本身从不携带它们。
+  // 方向和价格是节点所在价位的属性，因此节点本身从不携带它们：
+  // 方向即持有该价位的单侧订单簿，价格由槽位下标换算。
   const auto* level = order->level;
-  const auto side = level->side;
-  const auto price = band_.ToPrice(level->tick);
+  const auto side = bids_.Owns(level) ? Side::BUY : Side::SELL;
+  const auto price = band_.ToPrice(Levels(side).IndexOf(level));
 
   client_response_ = {
       ClientResponseType::CANCELED, client_id, symbol_id_, client_order_id,
@@ -155,15 +156,19 @@ std::string BookCore::toString([[maybe_unused]] bool detailed,
 Quantity BookCore::Match(TakerOrder& taker) noexcept {
   auto& maker_levels = OppositeLevels(taker.side);
   const bool taker_buys = (taker.side == Side::BUY);
+  // 被成交一侧的方向在整个撮合过程中恒定：即进攻方的对手方向。
+  const Side maker_side = taker_buys ? Side::SELL : Side::BUY;
 
   // 外层循环：价格层级，最优优先。内层循环：该层级的 FIFO。
   while (taker.quantity > 0) {
-    auto* level = maker_levels.BestLevel();
-    if (level == nullptr) {
+    // 最优 tick 由单侧订单簿即时维护，价位与价格都从它派生。
+    const Tick maker_tick = maker_levels.BestTick();
+    if (maker_tick == kInvalidTick) {
       break;
     }
+    const auto& level = maker_levels.LevelAt(maker_tick);
 
-    const auto maker_price = band_.ToPrice(level->tick);
+    const auto maker_price = band_.ToPrice(maker_tick);
     const bool crosses = taker_buys ? (maker_price <= taker.price)
                                     : (maker_price >= taker.price);
     if (!crosses) {
@@ -173,7 +178,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
     while (taker.quantity > 0) {
       // 清空价位后槽位仍可寻址且为空，因此即使最后一个节点已归还内存池，
       // 重新读取队头也是安全的。
-      auto* maker = level->first_order;
+      auto* maker = level.first_order;
       if (maker == nullptr) {
         break;
       }
@@ -199,7 +204,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           symbol_id_,
                           maker->client_order_id,
                           maker->market_order_id,
-                          level->side,
+                          maker_side,
                           maker_price,
                           executed_quantity,
                           maker->remaining_quantity};
@@ -208,7 +213,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
       market_update_ = {MarketUpdateType::TRADE,
                         symbol_id_,
                         maker->market_order_id,
-                        level->side,
+                        maker_side,
                         maker_price,
                         executed_quantity,
                         Priority_INVALID};
@@ -218,7 +223,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
         market_update_ = {MarketUpdateType::CANCEL,
                           symbol_id_,
                           maker->market_order_id,
-                          level->side,
+                          maker_side,
                           maker_price,
                           Quantity_INVALID,
                           Priority_INVALID};
@@ -230,7 +235,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
         market_update_ = {MarketUpdateType::MODIFY,
                           symbol_id_,
                           maker->market_order_id,
-                          level->side,
+                          maker_side,
                           maker_price,
                           maker->remaining_quantity,
                           maker->priority};
