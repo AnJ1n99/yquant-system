@@ -39,10 +39,3 @@ include_directories(
 # Libraries. Application entry points live outside this tree (or local main.cpp).
 add_subdirectory(common)
 add_subdirectory(exchange)
-
-# 测试选项
-option(BUILD_TESTS "Build tests" OFF)
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(test)
-endif()
