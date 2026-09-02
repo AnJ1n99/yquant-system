@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.16)
 # 项目名称
 project(yquant_server VERSION 1.0.0 LANGUAGES CXX)
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "yquant_server 仅支持 Linux 构建；其他平台只用于编辑。")
+endif()
+
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
