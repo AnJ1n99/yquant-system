@@ -9,14 +9,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 在 Debian 12 容器内构建，与远端构建机保持同一底座。
-    # ubuntu-latest 自带的 GCC 与 libstdc++ 都更新，直接用它跑绿了
-    # 也不能说明构建机（libstdc++ 12）能过。
-    container: debian:12
+    container: ubuntu:24.04
 
     steps:
       # 容器里没有 git，actions/checkout 需要它；
-      # clang-19 位于 bookworm/main，无需额外配置 apt 源。
+      # clang-19 位于 noble-updates/universe，官方 ubuntu:24.04 镜像默认已启用该组件，
+      # 无需额外配置 apt 源。
       - name: 安装工具链
         run: |
           apt-get update -qq
