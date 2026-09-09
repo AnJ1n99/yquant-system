@@ -17,13 +17,13 @@ class LFQueue final {
  public:
   //
   explicit LFQueue(std::size_t num_elems)
-      : store_(round_up_to_power_of_2(num_elems), T()),
+      : store_(RoundUpToPowerOf2(num_elems), T()),
         mask_(store_.size() - 1),
         capacity_(store_.size()) {}
 
-  T* tryGetNextToWriteTo() noexcept {
-    auto currentWrite = nextWriteIndex.load(std::memory_order_relaxed);
-    auto currentRead = nextReadIndex.load(std::memory_order_acquire);
+  T* TryGetNextToWriteTo() noexcept {
+    auto currentWrite = next_write_index.load(std::memory_order_relaxed);
+    auto currentRead = next_read_index.load(std::memory_order_acquire);
 
     if (UNLIKELY(((currentWrite + 1) & mask_) == (currentRead & mask_))) {
       return nullptr;
@@ -33,9 +33,9 @@ class LFQueue final {
   }
 
   // * 获取队列中下一个可用于写入的槽位地址。
-  auto getNextToWriteTo() noexcept -> T* {
+  auto GetNextToWriteTo() noexcept -> T* {
     while (true) {
-      auto slot = tryGetNextToWriteTo();
+      auto slot = TryGetNextToWriteTo();
       if (LIKELY(slot != nullptr)) {
         return slot;
       }
@@ -43,15 +43,15 @@ class LFQueue final {
     }
   }
 
-  auto updateWriteIndex() noexcept {
-    auto currentWriteIndex = nextWriteIndex.load(std::memory_order_relaxed);
-    nextWriteIndex.store(currentWriteIndex + 1, std::memory_order_release);
+  auto UpdateWriteIndex() noexcept {
+    auto currentWriteIndex = next_write_index.load(std::memory_order_relaxed);
+    next_write_index.store(currentWriteIndex + 1, std::memory_order_release);
   }
 
   // consumer operation
-  auto getNextToRead() const noexcept -> const T* {
-    auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
-    auto currentWriteIndex = nextWriteIndex.load(std::memory_order_acquire);
+  auto GetNextToRead() const noexcept -> const T* {
+    auto currentReadIndex = next_read_index.load(std::memory_order_relaxed);
+    auto currentWriteIndex = next_write_index.load(std::memory_order_acquire);
 
     if (UNLIKELY(currentReadIndex == currentWriteIndex)) {
       return nullptr;
@@ -60,22 +60,22 @@ class LFQueue final {
     return &store_[currentReadIndex & mask_];
   }
 
-  auto updateReadIndex() noexcept {
-    auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
-    nextReadIndex.store(currentReadIndex + 1, std::memory_order_release);
+  auto UpdateReadIndex() noexcept {
+    auto currentReadIndex = next_read_index.load(std::memory_order_relaxed);
+    next_read_index.store(currentReadIndex + 1, std::memory_order_release);
   }
 
   auto size() const noexcept -> std::size_t {
     // 必须先读 read 再读 write：索引单调递增，此顺序保证 read <= write，
     // 差值不会下溢。反过来读则可能得到巨大的伪值。
-    auto currentReadIndex = nextReadIndex.load(std::memory_order_acquire);
-    auto currentWriteIndex = nextWriteIndex.load(std::memory_order_acquire);
+    auto currentReadIndex = next_read_index.load(std::memory_order_acquire);
+    auto currentWriteIndex = next_write_index.load(std::memory_order_acquire);
     return currentWriteIndex - currentReadIndex;
   }
 
-  auto is_full() const noexcept -> bool {
-    auto current_write = nextWriteIndex.load(std::memory_order_relaxed);
-    auto current_read = nextReadIndex.load(std::memory_order_relaxed);
+  auto IsFull() const noexcept -> bool {
+    auto current_write = next_write_index.load(std::memory_order_relaxed);
+    auto current_read = next_read_index.load(std::memory_order_relaxed);
     return ((current_write + 1) & mask_) == (current_read & mask_);
   }
 
@@ -88,7 +88,7 @@ class LFQueue final {
   LFQueue& operator=(const LFQueue&&) = delete;
 
  private:
-  static std::size_t round_up_to_power_of_2(std::size_t num) {
+  static std::size_t RoundUpToPowerOf2(std::size_t num) {
     if (UNLIKELY(num == 0)) {
       return 1;
     }
@@ -110,7 +110,7 @@ class LFQueue final {
   const std::size_t mask_{};
   const std::size_t capacity_{};
   // 防止伪共享
-  alignas(64) std::atomic<std::size_t> nextWriteIndex{0};
-  alignas(64) std::atomic<std::size_t> nextReadIndex{0};
+  alignas(64) std::atomic<std::size_t> next_write_index{0};
+  alignas(64) std::atomic<std::size_t> next_read_index{0};
 };
 }  // namespace common

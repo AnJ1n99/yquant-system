@@ -56,8 +56,8 @@ class Logger final {
   // log file. 消费无锁队列中的日志条目并写入输出日志文件
   auto flushQueue() noexcept {
     while (running_) {
-      for (auto next = queue_.getNextToRead(); next;
-           next = queue_.getNextToRead()) {
+      for (auto next = queue_.GetNextToRead(); next;
+           next = queue_.GetNextToRead()) {
         switch (next->type_) {
           case LogType::CHAR:
             file_ << next->u_.c;
@@ -90,7 +90,7 @@ class Logger final {
             file_ << next->u_.str;
             break;
         }
-        queue_.updateReadIndex();
+        queue_.UpdateReadIndex();
       }
       file_.flush();
 
@@ -131,8 +131,8 @@ class Logger final {
   /// queue. Creates a LogElement of the correct type and writes it to the lock
   /// free queue.
   auto pushValue(const LogElement& logElement) noexcept {
-    *(queue_.getNextToWriteTo()) = logElement;
-    queue_.updateWriteIndex();
+    *(queue_.GetNextToWriteTo()) = logElement;
+    queue_.UpdateWriteIndex();
   }
 
   auto pushValue(const char value) noexcept {

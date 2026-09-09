@@ -57,9 +57,9 @@ class FIFOSequencer {
                    client_request.receive_time,
                    client_request.request.toString());
 
-      auto nextWrite = incomingRequest_->getNextToWriteTo();
+      auto nextWrite = incomingRequest_->GetNextToWriteTo();
       *nextWrite = std::move(client_request.request);
-      incomingRequest_->updateWriteIndex();
+      incomingRequest_->UpdateWriteIndex();
       TTT_MEASURE(T2_OrderManager_LFQueue_write, (*logger_));
     }
     pendingSize = 0;

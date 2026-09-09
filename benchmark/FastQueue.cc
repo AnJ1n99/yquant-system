@@ -74,15 +74,15 @@ auto NowNs() -> int64_t {
 }
 
 void Push(common::LFQueue<int64_t>& queue, int64_t value) {
-  *queue.getNextToWriteTo() = value;
-  queue.updateWriteIndex();
+  *queue.GetNextToWriteTo() = value;
+  queue.UpdateWriteIndex();
 }
 
 auto Pop(common::LFQueue<int64_t>& queue) -> int64_t {
   const int64_t* value;
-  while (!(value = queue.getNextToRead())) CPU_PAUSE();
+  while (!(value = queue.GetNextToRead())) CPU_PAUSE();
   const auto result = *value;
-  queue.updateReadIndex();
+  queue.UpdateReadIndex();
   return result;
 }
 
@@ -93,37 +93,37 @@ auto Pop(common::LFQueue<int64_t>& queue) -> int64_t {
 TEST(LFQueueCorrectness, BasicPushPop) {
   common::LFQueue<int> q(8);
 
-  auto* slot = q.getNextToWriteTo();
+  auto* slot = q.GetNextToWriteTo();
   *slot = 42;
-  q.updateWriteIndex();
+  q.UpdateWriteIndex();
 
-  auto* val = q.getNextToRead();
+  auto* val = q.GetNextToRead();
   ASSERT_NE(val, nullptr);
   EXPECT_EQ(*val, 42);
-  q.updateReadIndex();
+  q.UpdateReadIndex();
 
-  EXPECT_EQ(q.getNextToRead(), nullptr);
+  EXPECT_EQ(q.GetNextToRead(), nullptr);
 }
 
 TEST(LFQueueCorrectness, FillToCapacity) {
   common::LFQueue<int> q(8);
 
   int pushed = 0;
-  while (auto* slot = q.tryGetNextToWriteTo()) {
+  while (auto* slot = q.TryGetNextToWriteTo()) {
     *slot = pushed;
-    q.updateWriteIndex();
+    q.UpdateWriteIndex();
     ++pushed;
   }
   EXPECT_EQ(pushed, 7);
-  EXPECT_TRUE(q.is_full());
+  EXPECT_TRUE(q.IsFull());
 
   for (int i = 0; i < pushed; ++i) {
-    auto* val = q.getNextToRead();
+    auto* val = q.GetNextToRead();
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, i);
-    q.updateReadIndex();
+    q.UpdateReadIndex();
   }
-  EXPECT_EQ(q.getNextToRead(), nullptr);
+  EXPECT_EQ(q.GetNextToRead(), nullptr);
 }
 
 TEST(LFQueueCorrectness, Wraparound) {
@@ -131,18 +131,18 @@ TEST(LFQueueCorrectness, Wraparound) {
 
   for (int round = 0; round < 10; ++round) {
     for (int i = 0; i < 3; ++i) {
-      auto* slot = q.getNextToWriteTo();
+      auto* slot = q.GetNextToWriteTo();
       *slot = round * 100 + i;
-      q.updateWriteIndex();
+      q.UpdateWriteIndex();
     }
-    EXPECT_TRUE(q.is_full());
+    EXPECT_TRUE(q.IsFull());
     for (int i = 0; i < 3; ++i) {
-      auto* val = q.getNextToRead();
+      auto* val = q.GetNextToRead();
       ASSERT_NE(val, nullptr);
       EXPECT_EQ(*val, round * 100 + i);
-      q.updateReadIndex();
+      q.UpdateReadIndex();
     }
-    EXPECT_EQ(q.getNextToRead(), nullptr);
+    EXPECT_EQ(q.GetNextToRead(), nullptr);
   }
 }
 
@@ -155,20 +155,20 @@ TEST(LFQueueCorrectness, ConcurrentSPSC) {
 
   std::thread producer([&] {
     for (int64_t i = 0; i < kCount; ++i) {
-      auto* slot = q.getNextToWriteTo();
+      auto* slot = q.GetNextToWriteTo();
       *slot = i;
-      q.updateWriteIndex();
+      q.UpdateWriteIndex();
     }
   });
 
   std::thread consumer([&] {
     for (int i = 0; i < kCount; ++i) {
       const int64_t* val;
-      while (!(val = q.getNextToRead())) {
+      while (!(val = q.GetNextToRead())) {
         CPU_PAUSE();
       }
       received.push_back(*val);
-      q.updateReadIndex();
+      q.UpdateReadIndex();
     }
   });
 
@@ -185,22 +185,22 @@ TEST(LFQueueCorrectness, SizeTracking) {
   common::LFQueue<int> q(8);
   EXPECT_EQ(q.size(), 0);
 
-  auto* s1 = q.getNextToWriteTo();
+  auto* s1 = q.GetNextToWriteTo();
   *s1 = 1;
-  q.updateWriteIndex();
+  q.UpdateWriteIndex();
   EXPECT_EQ(q.size(), 1);
 
-  auto* s2 = q.getNextToWriteTo();
+  auto* s2 = q.GetNextToWriteTo();
   *s2 = 2;
-  q.updateWriteIndex();
+  q.UpdateWriteIndex();
   EXPECT_EQ(q.size(), 2);
 
-  q.getNextToRead();
-  q.updateReadIndex();
+  q.GetNextToRead();
+  q.UpdateReadIndex();
   EXPECT_EQ(q.size(), 1);
 
-  q.getNextToRead();
-  q.updateReadIndex();
+  q.GetNextToRead();
+  q.UpdateReadIndex();
   EXPECT_EQ(q.size(), 0);
 }
 
@@ -217,10 +217,10 @@ TEST(LFQueueCorrectness, CapacityVsUsable) {
   EXPECT_EQ(q.capacity(), 8);
 
   int pushed = 0;
-  while (q.tryGetNextToWriteTo()) {
-    auto* slot = q.tryGetNextToWriteTo();
+  while (q.TryGetNextToWriteTo()) {
+    auto* slot = q.TryGetNextToWriteTo();
     *slot = pushed++;
-    q.updateWriteIndex();
+    q.UpdateWriteIndex();
   }
   EXPECT_EQ(pushed, 7) << "可用槽位应为 capacity - 1（哨兵位）";
 }
@@ -229,11 +229,11 @@ TEST(LFQueueCorrectness, CapacityVsUsable) {
 
 TEST(LFQueueDefect, D4_Capacity1AlwaysFull) {
   common::LFQueue<int> q1(1);
-  EXPECT_EQ(q1.tryGetNextToWriteTo(), nullptr) << "LFQueue(1) 应永远满";
-  EXPECT_TRUE(q1.is_full());
+  EXPECT_EQ(q1.TryGetNextToWriteTo(), nullptr) << "LFQueue(1) 应永远满";
+  EXPECT_TRUE(q1.IsFull());
 
   common::LFQueue<int> q0(0);
-  EXPECT_EQ(q0.tryGetNextToWriteTo(), nullptr) << "LFQueue(0) 应永远满";
+  EXPECT_EQ(q0.TryGetNextToWriteTo(), nullptr) << "LFQueue(0) 应永远满";
 }
 
 // ==================== 性能基准 ====================
@@ -379,37 +379,37 @@ TEST(LFQueueCorrectness, ProcessTimeout) {
 
 TEST(LFQueueCorrectness, UncommittedWriteIsInvisible) {
   common::LFQueue<int> q(2);
-  auto* slot = q.tryGetNextToWriteTo();
+  auto* slot = q.TryGetNextToWriteTo();
   ASSERT_NE(slot, nullptr);
   *slot = 42;
-  EXPECT_EQ(q.getNextToRead(), nullptr);
+  EXPECT_EQ(q.GetNextToRead(), nullptr);
   EXPECT_EQ(q.size(), 0);
-  q.updateWriteIndex();
-  const auto* value = q.getNextToRead();
+  q.UpdateWriteIndex();
+  const auto* value = q.GetNextToRead();
   ASSERT_NE(value, nullptr);
   EXPECT_EQ(*value, 42);
-  q.updateReadIndex();
+  q.UpdateReadIndex();
 }
 
 TEST(LFQueueCorrectness, UnreleasedReadCannotBeOverwritten) {
   common::LFQueue<int> q(2);
-  auto* slot = q.tryGetNextToWriteTo();
+  auto* slot = q.TryGetNextToWriteTo();
   ASSERT_NE(slot, nullptr);
   *slot = 42;
-  q.updateWriteIndex();
-  const auto* value = q.getNextToRead();
+  q.UpdateWriteIndex();
+  const auto* value = q.GetNextToRead();
   ASSERT_NE(value, nullptr);
-  EXPECT_EQ(q.tryGetNextToWriteTo(), nullptr);
+  EXPECT_EQ(q.TryGetNextToWriteTo(), nullptr);
   EXPECT_EQ(*value, 42);
-  q.updateReadIndex();
-  slot = q.tryGetNextToWriteTo();
+  q.UpdateReadIndex();
+  slot = q.TryGetNextToWriteTo();
   ASSERT_NE(slot, nullptr);
   *slot = 99;
-  q.updateWriteIndex();
-  value = q.getNextToRead();
+  q.UpdateWriteIndex();
+  value = q.GetNextToRead();
   ASSERT_NE(value, nullptr);
   EXPECT_EQ(*value, 99);
-  q.updateReadIndex();
+  q.UpdateReadIndex();
 }
 
 int main(int argc, char** argv) {

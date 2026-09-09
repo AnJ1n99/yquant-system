@@ -89,7 +89,7 @@ void MatchingEngine::run() {
 
   while (running_) {
     // 从客户端请求队列中读取请求
-    const auto client_request = incoming_requests->getNextToRead();
+    const auto client_request = incoming_requests->GetNextToRead();
 
     if (LIKELY(client_request)) {
       TTT_MEASURE(T3_MatchingEngine_LFQueue_read, logger);  // 测量队列读取时间
@@ -105,7 +105,7 @@ void MatchingEngine::run() {
       END_MEASURE(Exchange_MatchingEngine_processClientRequest,
                   logger);  // 测量处理时间
       // 标记已读取完成
-      incoming_requests->updateReadIndex();
+      incoming_requests->UpdateReadIndex();
     }
   }
 
@@ -119,9 +119,9 @@ void MatchingEngine::sendMarketUpdate(
   logger.log("%:% %() % Sending market update: %\n", __FILE__, __LINE__,
              __FUNCTION__, time_str_, update->toString());
 
-  auto next_write = outgoing_market_updates->getNextToWriteTo();
+  auto next_write = outgoing_market_updates->GetNextToWriteTo();
   *next_write = *update;
-  outgoing_market_updates->updateWriteIndex();
+  outgoing_market_updates->UpdateWriteIndex();
   TTT_MEASURE(T4t_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
 
@@ -131,9 +131,9 @@ void MatchingEngine::sendClientResponse(
   logger.log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
              response->toString());
   // 写入客户端响应队列
-  auto next_write = outgoing_client_responses->getNextToWriteTo();
+  auto next_write = outgoing_client_responses->GetNextToWriteTo();
   *next_write = *response;
-  outgoing_client_responses->updateWriteIndex();
+  outgoing_client_responses->UpdateWriteIndex();
   TTT_MEASURE(T4_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
 

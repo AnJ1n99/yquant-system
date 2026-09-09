@@ -42,9 +42,9 @@ class OrderManager {
       tcpServer.poll();
       tcpServer.sendAndRecv();
 
-      for (auto clientResponse = outgoingResponses->getNextToRead();
+      for (auto clientResponse = outgoingResponses->GetNextToRead();
            clientResponse;
-           clientResponse = outgoingResponses->getNextToRead()) {
+           clientResponse = outgoingResponses->GetNextToRead()) {
         TTT_MEASURE(T5t_OrderManager_LFQueue_read, logger);
 
         auto& nextOutgoingSeqNum =
@@ -66,7 +66,7 @@ class OrderManager {
             clientResponse, sizeof(MatchingEngineClientResponse));
         END_MEASURE(Exchange_TCPSocket_send, logger);
 
-        outgoingResponses->updateReadIndex();
+        outgoingResponses->UpdateReadIndex();
         TTT_MEASURE(T6t_OrderManager_TCP_write, logger);
 
         ++nextOutgoingSeqNum;
