@@ -4,14 +4,8 @@
 #include <iostream>
 #include <vector>
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
 #include <immintrin.h>
 #define CPU_PAUSE() _mm_pause()
-#elif defined(__aarch64__) || defined(__arm__)
-#define CPU_PAUSE() __asm__ volatile("yield" ::: "memory")
-#else
-#define CPU_PAUSE() ((void)0)
-#endif
 
 #include "macros.h"
 
@@ -19,9 +13,9 @@ namespace common {
 // * 任意类型  FIFO  SPSC 场景线程安全及优化（内存对齐避免伪共享）
 // * 固定大小和首尾相连
 template <typename T>
-class LFQueue final {  // !final 防止被继承
+class LFQueue final {
  public:
-  // !explicit 防止隐式转换(对单参数构造函数)
+  //
   explicit LFQueue(std::size_t num_elems)
       : store_(round_up_to_power_of_2(num_elems), T()),
         mask_(store_.size() - 1),
@@ -38,7 +32,7 @@ class LFQueue final {  // !final 防止被继承
     return &store_[currentWrite & mask_];
   }
 
-  // * 获取队列中下一个可用于写入的槽位地址。该函数会持续轮询，直到有可用空间为止
+  // * 获取队列中下一个可用于写入的槽位地址。
   auto getNextToWriteTo() noexcept -> T* {
     while (true) {
       auto slot = tryGetNextToWriteTo();
@@ -109,7 +103,7 @@ class LFQueue final {  // !final 防止被继承
   }
 
  private:
-  std::vector<T> store_{};  // ? 是否需要对齐，分配内存呢？
+  std::vector<T> store_{};
   const std::size_t mask_{};
   const std::size_t capacity_{};
   // 防止伪共享

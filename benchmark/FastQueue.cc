@@ -1,0 +1,420 @@
+#include <gtest/gtest.h>
+#include <sched.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <barrier>
+#include <csignal>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <thread>
+#include <vector>
+
+#include "../common/ringBuffer.h"
+
+namespace {
+
+// 超时在进程层处理，不给队列热循环增加计时和共享状态访问。
+void TimeoutHandler(int) {
+  constexpr char message[] = "队列测试超时，终止进程\n";
+  (void)write(STDERR_FILENO, message, sizeof(message) - 1);
+  _exit(124);
+}
+
+class TestDeadline final : public ::testing::EmptyTestEventListener {
+ public:
+  void OnTestStart(const ::testing::TestInfo&) override { alarm(120); }
+  void OnTestEnd(const ::testing::TestInfo&) override { alarm(0); }
+};
+
+auto PinThread(int cpu) -> bool {
+  if (cpu < 0 || cpu >= CPU_SETSIZE) return false;
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(cpu, &cpuset);
+  return sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0;
+}
+
+// 恢复调用线程的 CPU 集合，避免一个基准影响下一项测试。
+class CpuPair final {
+ public:
+  CpuPair() {
+    valid_ = sched_getaffinity(0, sizeof(original_), &original_) == 0;
+    if (!valid_) return;
+    for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+      if (!CPU_ISSET(cpu, &original_)) continue;
+      if (first == -1)
+        first = cpu;
+      else {
+        second = cpu;
+        break;
+      }
+    }
+  }
+  ~CpuPair() {
+    if (valid_) {
+      EXPECT_EQ(sched_setaffinity(0, sizeof(original_), &original_), 0)
+          << "恢复 CPU 集合失败";
+    }
+  }
+  int first = -1;
+  int second = -1;
+
+ private:
+  cpu_set_t original_{};
+  bool valid_ = false;
+};
+
+auto NowNs() -> int64_t {
+  timespec ts{};
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) std::abort();
+  return ts.tv_sec * 1'000'000'000LL + ts.tv_nsec;
+}
+
+void Push(common::LFQueue<int64_t>& queue, int64_t value) {
+  *queue.getNextToWriteTo() = value;
+  queue.updateWriteIndex();
+}
+
+auto Pop(common::LFQueue<int64_t>& queue) -> int64_t {
+  const int64_t* value;
+  while (!(value = queue.getNextToRead())) CPU_PAUSE();
+  const auto result = *value;
+  queue.updateReadIndex();
+  return result;
+}
+
+}  // namespace
+
+// ==================== 正确性测试 ====================
+
+TEST(LFQueueCorrectness, BasicPushPop) {
+  common::LFQueue<int> q(8);
+
+  auto* slot = q.getNextToWriteTo();
+  *slot = 42;
+  q.updateWriteIndex();
+
+  auto* val = q.getNextToRead();
+  ASSERT_NE(val, nullptr);
+  EXPECT_EQ(*val, 42);
+  q.updateReadIndex();
+
+  EXPECT_EQ(q.getNextToRead(), nullptr);
+}
+
+TEST(LFQueueCorrectness, FillToCapacity) {
+  common::LFQueue<int> q(8);
+
+  int pushed = 0;
+  while (auto* slot = q.tryGetNextToWriteTo()) {
+    *slot = pushed;
+    q.updateWriteIndex();
+    ++pushed;
+  }
+  EXPECT_EQ(pushed, 7);
+  EXPECT_TRUE(q.is_full());
+
+  for (int i = 0; i < pushed; ++i) {
+    auto* val = q.getNextToRead();
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, i);
+    q.updateReadIndex();
+  }
+  EXPECT_EQ(q.getNextToRead(), nullptr);
+}
+
+TEST(LFQueueCorrectness, Wraparound) {
+  common::LFQueue<int> q(4);
+
+  for (int round = 0; round < 10; ++round) {
+    for (int i = 0; i < 3; ++i) {
+      auto* slot = q.getNextToWriteTo();
+      *slot = round * 100 + i;
+      q.updateWriteIndex();
+    }
+    EXPECT_TRUE(q.is_full());
+    for (int i = 0; i < 3; ++i) {
+      auto* val = q.getNextToRead();
+      ASSERT_NE(val, nullptr);
+      EXPECT_EQ(*val, round * 100 + i);
+      q.updateReadIndex();
+    }
+    EXPECT_EQ(q.getNextToRead(), nullptr);
+  }
+}
+
+TEST(LFQueueCorrectness, ConcurrentSPSC) {
+  constexpr int kCount = 1'000'000;
+  common::LFQueue<int64_t> q(1024);
+
+  std::vector<int64_t> received;
+  received.reserve(kCount);
+
+  std::thread producer([&] {
+    for (int64_t i = 0; i < kCount; ++i) {
+      auto* slot = q.getNextToWriteTo();
+      *slot = i;
+      q.updateWriteIndex();
+    }
+  });
+
+  std::thread consumer([&] {
+    for (int i = 0; i < kCount; ++i) {
+      const int64_t* val;
+      while (!(val = q.getNextToRead())) {
+        CPU_PAUSE();
+      }
+      received.push_back(*val);
+      q.updateReadIndex();
+    }
+  });
+
+  producer.join();
+  consumer.join();
+
+  ASSERT_EQ(static_cast<int>(received.size()), kCount);
+  for (int i = 0; i < kCount; ++i) {
+    EXPECT_EQ(received[i], i) << "FIFO 乱序 at index " << i;
+  }
+}
+
+TEST(LFQueueCorrectness, SizeTracking) {
+  common::LFQueue<int> q(8);
+  EXPECT_EQ(q.size(), 0);
+
+  auto* s1 = q.getNextToWriteTo();
+  *s1 = 1;
+  q.updateWriteIndex();
+  EXPECT_EQ(q.size(), 1);
+
+  auto* s2 = q.getNextToWriteTo();
+  *s2 = 2;
+  q.updateWriteIndex();
+  EXPECT_EQ(q.size(), 2);
+
+  q.getNextToRead();
+  q.updateReadIndex();
+  EXPECT_EQ(q.size(), 1);
+
+  q.getNextToRead();
+  q.updateReadIndex();
+  EXPECT_EQ(q.size(), 0);
+}
+
+TEST(LFQueueCorrectness, PowerOf2Rounding) {
+  EXPECT_EQ(common::LFQueue<int>(3).capacity(), 4);
+  EXPECT_EQ(common::LFQueue<int>(5).capacity(), 8);
+  EXPECT_EQ(common::LFQueue<int>(8).capacity(), 8);
+  EXPECT_EQ(common::LFQueue<int>(9).capacity(), 16);
+  EXPECT_EQ(common::LFQueue<int>(16).capacity(), 16);
+}
+
+TEST(LFQueueCorrectness, CapacityVsUsable) {
+  common::LFQueue<int> q(8);
+  EXPECT_EQ(q.capacity(), 8);
+
+  int pushed = 0;
+  while (q.tryGetNextToWriteTo()) {
+    auto* slot = q.tryGetNextToWriteTo();
+    *slot = pushed++;
+    q.updateWriteIndex();
+  }
+  EXPECT_EQ(pushed, 7) << "可用槽位应为 capacity - 1（哨兵位）";
+}
+
+// ==================== 已知缺陷验证 ====================
+
+TEST(LFQueueDefect, D4_Capacity1AlwaysFull) {
+  common::LFQueue<int> q1(1);
+  EXPECT_EQ(q1.tryGetNextToWriteTo(), nullptr) << "LFQueue(1) 应永远满";
+  EXPECT_TRUE(q1.is_full());
+
+  common::LFQueue<int> q0(0);
+  EXPECT_EQ(q0.tryGetNextToWriteTo(), nullptr) << "LFQueue(0) 应永远满";
+}
+
+// ==================== 性能基准 ====================
+
+TEST(LFQueueBenchmark, Throughput) {
+  constexpr int kRuns = 7;
+  constexpr std::size_t kItems = 5'000'000;
+  constexpr std::size_t kWarmup = 100'000;
+  constexpr std::size_t kCapacity = 65536;
+  CpuPair cpus;
+  if (cpus.second < 0) GTEST_SKIP() << "性能测试需要两个允许使用的 CPU";
+  std::vector<double> ops;
+  ops.reserve(kRuns);
+
+  for (int r = 0; r < kRuns; ++r) {
+    common::LFQueue<int64_t> q(kCapacity);
+    std::barrier sync(2);
+    int64_t consumer_sum = 0;
+    int64_t finished = 0;
+    int64_t started = 0;
+    bool consumer_pinned = false;
+    const bool producer_pinned = PinThread(cpus.first);
+    std::thread consumer([&] {
+      consumer_pinned = PinThread(cpus.second);
+      sync.arrive_and_wait();
+      if (!consumer_pinned || !producer_pinned) return;
+      for (std::size_t i = 0; i < kWarmup; ++i) (void)Pop(q);
+      sync.arrive_and_wait();
+      // started 在第三次同步释放消费者前写入。
+      sync.arrive_and_wait();
+      for (std::size_t i = 0; i < kItems; ++i) consumer_sum += Pop(q);
+      finished = NowNs();
+    });
+    sync.arrive_and_wait();
+    if (!consumer_pinned || !producer_pinned) {
+      consumer.join();
+      GTEST_SKIP() << "性能测试绑核失败";
+    }
+    for (std::size_t i = 0; i < kWarmup; ++i) Push(q, 0);
+    sync.arrive_and_wait();
+    started = NowNs();
+    sync.arrive_and_wait();
+    for (std::size_t i = 0; i < kItems; ++i) Push(q, static_cast<int64_t>(i));
+    consumer.join();
+    const auto elapsed = finished - started;
+    const int64_t expected = static_cast<int64_t>(kItems) * (kItems - 1) / 2;
+    ASSERT_EQ(consumer_sum, expected) << "数据校验失败，轮次 " << r;
+    ASSERT_GT(elapsed, 0);
+    ops.push_back(static_cast<double>(kItems) / elapsed * 1e9);
+  }
+  // 所有测量完成后再打印，日志 I/O 不进入计时区间。
+  for (int r = 0; r < kRuns; ++r) {
+    std::printf(
+        "原始成绩：吞吐，轮次=%d，CPU=%d,%d，槽位=%zu，预热=%zu，消息=%zu，条/"
+        "秒=%.6f\n",
+        r + 1, cpus.first, cpus.second, kCapacity, kWarmup, kItems, ops[r]);
+  }
+  std::sort(ops.begin(), ops.end());
+  std::printf(
+      "\n吞吐量（CPU=%d,%d，槽位=%zu，消息=%zu，轮数=%d）\n"
+      "  最小/中位/最大：%.2f / %.2f / %.2f 百万条/秒\n"
+      "  KVM 环境仅观察方向，不据此推断可靠的提升倍数。\n",
+      cpus.first, cpus.second, kCapacity, kItems, kRuns, ops.front() / 1e6,
+      ops[kRuns / 2] / 1e6, ops.back() / 1e6);
+}
+
+TEST(LFQueueBenchmark, PingPongRTT) {
+  constexpr int kRuns = 7;
+  constexpr std::size_t kRoundTrips = 500'000;
+  constexpr std::size_t kWarmup = 100'000;
+  constexpr std::size_t kCapacity = 1024;
+  CpuPair cpus;
+  if (cpus.second < 0) GTEST_SKIP() << "性能测试需要两个允许使用的 CPU";
+  std::vector<double> rtts;
+  rtts.reserve(kRuns);
+
+  for (int r = 0; r < kRuns; ++r) {
+    common::LFQueue<int64_t> q_ping(kCapacity);
+    common::LFQueue<int64_t> q_pong(kCapacity);
+    std::barrier sync(2);
+    bool responder_pinned = false;
+    const bool requester_pinned = PinThread(cpus.first);
+    std::thread responder([&] {
+      responder_pinned = PinThread(cpus.second);
+      sync.arrive_and_wait();
+      if (!responder_pinned || !requester_pinned) return;
+      for (std::size_t i = 0; i < kWarmup; ++i) Push(q_pong, Pop(q_ping));
+      sync.arrive_and_wait();
+      for (std::size_t i = 0; i < kRoundTrips; ++i) Push(q_pong, Pop(q_ping));
+    });
+    sync.arrive_and_wait();
+    if (!responder_pinned || !requester_pinned) {
+      responder.join();
+      GTEST_SKIP() << "性能测试绑核失败";
+    }
+    bool valid = true;
+    for (std::size_t i = 0; i < kWarmup; ++i) {
+      Push(q_ping, static_cast<int64_t>(i));
+      valid &= Pop(q_pong) == static_cast<int64_t>(i);
+    }
+    sync.arrive_and_wait();
+    const auto started = NowNs();
+    for (std::size_t i = 0; i < kRoundTrips; ++i) {
+      Push(q_ping, static_cast<int64_t>(i));
+      valid &= Pop(q_pong) == static_cast<int64_t>(i);
+    }
+    const auto elapsed = NowNs() - started;
+    responder.join();
+    // 即使消息损坏也完成协议并回收线程，然后报告失败。
+    ASSERT_TRUE(valid) << "乒乓消息损坏，轮次 " << r;
+    ASSERT_GT(elapsed, 0);
+    rtts.push_back(static_cast<double>(elapsed) / kRoundTrips);
+  }
+  for (int r = 0; r < kRuns; ++r) {
+    std::printf(
+        "原始成绩：RTT，轮次=%d，CPU=%d,%d，槽位=%zu，预热=%zu，往返=%zu，纳秒/"
+        "往返=%.6f\n",
+        r + 1, cpus.first, cpus.second, kCapacity, kWarmup, kRoundTrips,
+        rtts[r]);
+  }
+  std::sort(rtts.begin(), rtts.end());
+  std::printf(
+      "\n乒乓 RTT（CPU=%d,%d，槽位=%zu，往返=%zu，轮数=%d）\n"
+      "  各轮平均 RTT 的最小/中位/最大：%.1f / %.1f / %.1f 纳秒\n"
+      "  不是逐消息延迟分位数；计时起止均在请求线程。\n",
+      cpus.first, cpus.second, kCapacity, kRoundTrips, kRuns, rtts.front(),
+      rtts[kRuns / 2], rtts.back());
+}
+
+TEST(LFQueueCorrectness, RejectInvalidCpu) {
+  EXPECT_FALSE(PinThread(-1));
+  EXPECT_FALSE(PinThread(CPU_SETSIZE));
+}
+
+TEST(LFQueueCorrectness, ProcessTimeout) {
+  EXPECT_EXIT(
+      {
+        alarm(1);
+        for (;;) pause();
+      },
+      ::testing::ExitedWithCode(124), "队列测试超时");
+}
+
+TEST(LFQueueCorrectness, UncommittedWriteIsInvisible) {
+  common::LFQueue<int> q(2);
+  auto* slot = q.tryGetNextToWriteTo();
+  ASSERT_NE(slot, nullptr);
+  *slot = 42;
+  EXPECT_EQ(q.getNextToRead(), nullptr);
+  EXPECT_EQ(q.size(), 0);
+  q.updateWriteIndex();
+  const auto* value = q.getNextToRead();
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(*value, 42);
+  q.updateReadIndex();
+}
+
+TEST(LFQueueCorrectness, UnreleasedReadCannotBeOverwritten) {
+  common::LFQueue<int> q(2);
+  auto* slot = q.tryGetNextToWriteTo();
+  ASSERT_NE(slot, nullptr);
+  *slot = 42;
+  q.updateWriteIndex();
+  const auto* value = q.getNextToRead();
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(q.tryGetNextToWriteTo(), nullptr);
+  EXPECT_EQ(*value, 42);
+  q.updateReadIndex();
+  slot = q.tryGetNextToWriteTo();
+  ASSERT_NE(slot, nullptr);
+  *slot = 99;
+  q.updateWriteIndex();
+  value = q.getNextToRead();
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(*value, 99);
+  q.updateReadIndex();
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  if (std::signal(SIGALRM, TimeoutHandler) == SIG_ERR) return 1;
+  ::testing::UnitTest::GetInstance()->listeners().Append(new TestDeadline);
+  return RUN_ALL_TESTS();
+}

@@ -39,3 +39,8 @@ include_directories(
 # Libraries. Application entry points live outside this tree (or local main.cpp).
 add_subdirectory(common)
 add_subdirectory(exchange)
+
+option(BUILD_BENCHMARKS "构建基准测试" OFF)
+if(BUILD_BENCHMARKS)
+  add_subdirectory(benchmark)
+endif()
