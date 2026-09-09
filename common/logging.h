@@ -56,7 +56,7 @@ class Logger final {
   // log file. 消费无锁队列中的日志条目并写入输出日志文件
   auto flushQueue() noexcept {
     while (running_) {
-      for (auto next = queue_.getNextToRead(); queue_.size() && next;
+      for (auto next = queue_.getNextToRead(); next;
            next = queue_.getNextToRead()) {
         switch (next->type_) {
           case LogType::CHAR:

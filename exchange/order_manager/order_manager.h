@@ -43,7 +43,7 @@ class OrderManager {
       tcpServer.sendAndRecv();
 
       for (auto clientResponse = outgoingResponses->getNextToRead();
-           outgoingResponses->size() && clientResponse;
+           clientResponse;
            clientResponse = outgoingResponses->getNextToRead()) {
         TTT_MEASURE(T5t_OrderManager_LFQueue_read, logger);
 
