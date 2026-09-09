@@ -46,30 +46,31 @@ class LFQueue final {
   auto updateWriteIndex() noexcept {
     auto currentWriteIndex = nextWriteIndex.load(std::memory_order_relaxed);
     nextWriteIndex.store(currentWriteIndex + 1, std::memory_order_release);
-    numElements.fetch_add(1, std::memory_order_release);
   }
 
   // consumer operation
   auto getNextToRead() const noexcept -> const T* {
     auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
-    auto currentElementCount = numElements.load(std::memory_order_acquire);
+    auto currentWriteIndex = nextWriteIndex.load(std::memory_order_acquire);
 
-    if (LIKELY(currentElementCount > 0)) {
-      std::size_t targetIndex = currentReadIndex & mask_;
-      return &store_[targetIndex];
-    } else {
+    if (UNLIKELY(currentReadIndex == currentWriteIndex)) {
       return nullptr;
     }
+
+    return &store_[currentReadIndex & mask_];
   }
 
   auto updateReadIndex() noexcept {
     auto currentReadIndex = nextReadIndex.load(std::memory_order_relaxed);
     nextReadIndex.store(currentReadIndex + 1, std::memory_order_release);
-    numElements.fetch_sub(1, std::memory_order_release);
   }
 
-  auto size() const noexcept {
-    return numElements.load(std::memory_order_acquire);
+  auto size() const noexcept -> std::size_t {
+    // 必须先读 read 再读 write：索引单调递增，此顺序保证 read <= write，
+    // 差值不会下溢。反过来读则可能得到巨大的伪值。
+    auto currentReadIndex = nextReadIndex.load(std::memory_order_acquire);
+    auto currentWriteIndex = nextWriteIndex.load(std::memory_order_acquire);
+    return currentWriteIndex - currentReadIndex;
   }
 
   auto is_full() const noexcept -> bool {
@@ -88,7 +89,9 @@ class LFQueue final {
 
  private:
   static std::size_t round_up_to_power_of_2(std::size_t num) {
-    if (UNLIKELY(num == 0)) return 1;
+    if (UNLIKELY(num == 0)) {
+      return 1;
+    }
 
     --num;
     num |= num >> 1;
@@ -109,6 +112,5 @@ class LFQueue final {
   // 防止伪共享
   alignas(64) std::atomic<std::size_t> nextWriteIndex{0};
   alignas(64) std::atomic<std::size_t> nextReadIndex{0};
-  alignas(64) std::atomic<std::size_t> numElements{0};
 };
 }  // namespace common
