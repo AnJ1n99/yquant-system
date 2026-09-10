@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
 #include <barrier>
 #include <csignal>
 #include <cstdint>
@@ -72,6 +73,15 @@ auto NowNs() -> int64_t {
   if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) std::abort();
   return ts.tv_sec * 1'000'000'000LL + ts.tv_nsec;
 }
+
+// 背压场景的载荷：序号用于校验 FIFO 顺序与是否读到未发布或过期的槽位，
+// payload 是序号的乘法散列，用于识别内容错位。
+struct BackpressureRecord {
+  std::size_t seq = 0;
+  std::size_t payload = 0;
+};
+
+constexpr std::size_t kBackpressureMul = 2654435761u;
 
 void Push(common::LFQueue<int64_t>& queue, int64_t value) {
   *queue.GetNextToWriteTo() = value;
@@ -179,6 +189,98 @@ TEST(LFQueueCorrectness, ConcurrentSPSC) {
   for (int i = 0; i < kCount; ++i) {
     EXPECT_EQ(received[i], i) << "FIFO 乱序 at index " << i;
   }
+}
+
+// 真实背压：容量远小于消息总数，生产者只有在消费者释放槽位后才能继续，
+// 因此必然长时间阻塞在满队列上。与 ConcurrentSPSC 不同，这里刻意让消费者
+// 慢于生产者，覆盖满/空边界上的握手。为摆脱调度运气，生产者先填满队列再
+// 放开消费者，因此正式循环的第一次写入必然阻塞；仍断言阻塞次数大于零，
+// 一旦这条不变量被破坏就直接失败。
+TEST(LFQueueCorrectness, BackpressurePreservesOrder) {
+  constexpr std::size_t kSlots = 1024;
+  constexpr std::size_t kCount = 20'000'000;
+  CpuPair cpus;
+  if (cpus.second < 0) GTEST_SKIP() << "背压测试需要两个允许使用的 CPU";
+
+  common::LFQueue<BackpressureRecord> q(kSlots);
+  std::atomic<std::size_t> consumed{0};
+  std::atomic<std::size_t> published{0};
+  std::atomic<bool> producer_done{false};
+  std::atomic<bool> producer_started{false};
+  std::atomic<bool> failed{false};
+  std::atomic<bool> pinned{true};
+  std::size_t blocked = 0;
+  std::barrier sync(2);
+
+  std::thread consumer([&] {
+    if (!PinThread(cpus.second)) pinned = false;
+    sync.arrive_and_wait();
+    if (!pinned) return;
+    while (!producer_started.load(std::memory_order_acquire)) CPU_PAUSE();
+    // 顺序很重要：必须先取数据，再判断终止。published 在生产者写完全部消息
+    // 之前恒为 0，若先判断 next == total 就会永远跳过取数据，生产者写满后
+    // 等空位、消费者等数据，双方互等。producer_done 在总量之后发布，因此
+    // 确认它置位时，读到的 total 一定是最终值。
+    for (std::size_t next = 0;;) {
+      const auto* slot = q.GetNextToRead();
+      if (slot == nullptr) {
+        const std::size_t total = published.load(std::memory_order_acquire);
+        if (next == total && producer_done.load(std::memory_order_acquire)) {
+          return;
+        }
+        CPU_PAUSE();
+        continue;
+      }
+      if (slot->seq != next || slot->payload != next * kBackpressureMul) {
+        failed = true;
+        return;
+      }
+      q.UpdateReadIndex();
+      consumed.store(++next, std::memory_order_release);
+    }
+  });
+
+  if (!PinThread(cpus.first)) pinned = false;
+  sync.arrive_and_wait();
+  if (!pinned) {
+    producer_started.store(true, std::memory_order_release);
+    producer_done.store(true, std::memory_order_release);
+    consumer.join();
+    GTEST_SKIP() << "背压测试绑核失败";
+  }
+
+  // 预填满队列：消费者随后 drain 的正是这一段，正式循环从满队列开始。
+  std::size_t written = 0;
+  while (written < kCount) {
+    auto* slot = q.TryGetNextToWriteTo();
+    if (slot == nullptr) break;
+    slot->seq = written;
+    slot->payload = written * kBackpressureMul;
+    q.UpdateWriteIndex();
+    ++written;
+  }
+  producer_started.store(true, std::memory_order_release);
+
+  for (; written < kCount; ++written) {
+    auto* slot = q.TryGetNextToWriteTo();
+    if (slot == nullptr) {
+      // 每个阻塞段只计一次：先阻塞等待，再恢复自旋发布。
+      ++blocked;
+      while ((slot = q.TryGetNextToWriteTo()) == nullptr) CPU_PAUSE();
+    }
+    slot->seq = written;
+    slot->payload = written * kBackpressureMul;
+    q.UpdateWriteIndex();
+  }
+  published.store(kCount, std::memory_order_release);
+  producer_done.store(true, std::memory_order_release);
+  consumer.join();
+
+  ASSERT_FALSE(failed.load()) << "背压场景数据错位，已消费 " << consumed.load();
+  EXPECT_EQ(consumed.load(), kCount) << "背压场景丢消息";
+  EXPECT_GT(blocked, 0u)
+      << "生产者未等待过，说明预填未填满队列，本次运行不是有效的背压证据";
+  std::printf("背压：%zu 条，生产者阻塞等待 %zu 次\n", kCount, blocked);
 }
 
 TEST(LFQueueCorrectness, SizeTracking) {
