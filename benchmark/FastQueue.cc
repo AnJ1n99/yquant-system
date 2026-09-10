@@ -225,6 +225,97 @@ TEST(LFQueueCorrectness, CapacityVsUsable) {
   EXPECT_EQ(pushed, 7) << "可用槽位应为 capacity - 1（哨兵位）";
 }
 
+// ==================== 对端进度缓存 ====================
+
+// 生产者缓存显示满时必须重新加载真实读索引，否则会永久误报满。
+TEST(LFQueueCacheProgress, ProducerReloadsAfterConsumerDrains) {
+  common::LFQueue<int> q(4);
+
+  for (int i = 0; i < 3; ++i) {
+    auto* slot = q.TryGetNextToWriteTo();
+    ASSERT_NE(slot, nullptr) << "第 " << i << " 个槽位应可写";
+    *slot = i;
+    q.UpdateWriteIndex();
+  }
+  ASSERT_EQ(q.TryGetNextToWriteTo(), nullptr) << "应已满";
+
+  const auto* value = q.GetNextToRead();
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(*value, 0);
+  q.UpdateReadIndex();
+
+  // 生产者的缓存仍是陈旧的满值，必须重新加载才能看到这个空位。
+  auto* slot = q.TryGetNextToWriteTo();
+  ASSERT_NE(slot, nullptr) << "消费者已出队一条，生产者应重新加载并看到空位";
+  *slot = 99;
+  q.UpdateWriteIndex();
+  EXPECT_TRUE(q.IsFull());
+}
+
+// 消费者缓存显示空时必须重新加载真实写索引，否则会永久误报空。
+TEST(LFQueueCacheProgress, ConsumerReloadsAfterProducerPublishes) {
+  common::LFQueue<int> q(4);
+
+  ASSERT_EQ(q.GetNextToRead(), nullptr) << "初始应为空";
+
+  auto* slot = q.TryGetNextToWriteTo();
+  ASSERT_NE(slot, nullptr);
+  *slot = 7;
+  q.UpdateWriteIndex();
+
+  // 消费者的缓存仍是陈旧的空值，必须重新加载才能看到新数据。
+  const auto* value = q.GetNextToRead();
+  ASSERT_NE(value, nullptr) << "生产者已发布，消费者应重新加载并看到数据";
+  EXPECT_EQ(*value, 7);
+  q.UpdateReadIndex();
+  EXPECT_EQ(q.GetNextToRead(), nullptr);
+}
+
+// 单条交错进出跨多圈回绕：两侧缓存持续陈旧，按掩码比较若有误
+// 将在索引越过 capacity 倍数时误判。轮数取 capacity 的非整倍数。
+TEST(LFQueueCacheProgress, StaleCacheAcrossManyWraps) {
+  common::LFQueue<int> q(4);
+
+  for (int i = 0; i < 101; ++i) {
+    auto* slot = q.TryGetNextToWriteTo();
+    ASSERT_NE(slot, nullptr) << "第 " << i << " 轮写入失败";
+    *slot = i;
+    q.UpdateWriteIndex();
+
+    const auto* value = q.GetNextToRead();
+    ASSERT_NE(value, nullptr) << "第 " << i << " 轮读取失败";
+    EXPECT_EQ(*value, i) << "第 " << i << " 轮数据错位";
+    q.UpdateReadIndex();
+
+    ASSERT_EQ(q.size(), 0u) << "第 " << i << " 轮结束后应为空";
+  }
+}
+
+// 反复填满再排空，强制两侧缓存在每个边界都重新加载。
+TEST(LFQueueCacheProgress, RepeatedFillDrainCycles) {
+  common::LFQueue<int> q(8);
+  constexpr int kUsable = 7;
+
+  for (int round = 0; round < 20; ++round) {
+    int pushed = 0;
+    while (auto* slot = q.TryGetNextToWriteTo()) {
+      *slot = round * 1000 + pushed;
+      q.UpdateWriteIndex();
+      ++pushed;
+    }
+    ASSERT_EQ(pushed, kUsable) << "第 " << round << " 轮可写槽位数不对";
+    ASSERT_TRUE(q.IsFull());
+
+    for (int i = 0; i < kUsable; ++i) {
+      const auto* value = q.GetNextToRead();
+      ASSERT_NE(value, nullptr) << "第 " << round << " 轮第 " << i << " 条缺失";
+      EXPECT_EQ(*value, round * 1000 + i);
+      q.UpdateReadIndex();
+    }
+    ASSERT_EQ(q.GetNextToRead(), nullptr) << "第 " << round << " 轮末应为空";
+  }
+}
+
 // ==================== 已知缺陷验证 ====================
 
 TEST(LFQueueDefect, D4_Capacity1AlwaysFull) {
