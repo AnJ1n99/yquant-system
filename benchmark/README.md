@@ -27,3 +27,18 @@ bash benchmark/test_runner.sh
 背压测试用 1024 个槽位传输 20,000,000 条，生产者与消费者分别绑到两个 CPU，容量远小于总量，生产者必然反复阻塞在满队列上。它同时断言阻塞次数大于零：若队列始终未满，说明本次运行没有压到边界，直接判失败，避免把"没压到"当成通过。
 
 验收：正确性测试全部通过；单 CPU 或绑核失败时背压测试与性能测试明确跳过；无效 CPU 返回失败；超时以 124 退出；损坏乒乓消息报告测试失败而非 SIGABRT；背压场景不丢消息、不读错位且确实发生过阻塞；两项基准完成且计时为正。
+
+## 订单簿输出回归
+
+`book_core_test` 复用本目录已有的 GoogleTest，覆盖挂单、撤单拒绝、部分与完全成交、剩余挂单、FIFO 成交顺序，以及引擎多标的共用输出队列的接线。逐字节核对响应与行情；测试通过直接构造 `BookCore` 验证其无需宿主引擎。队列基准脚本不运行此目标。
+
+在 Linux 仓库根目录运行；将 `Release` 换成 `Debug` 可验证调试构建：
+
+```sh
+cmake -S . -B build/book-core-tests-release -G Ninja \
+  -DCMAKE_CXX_COMPILER=clang++-19 -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
+cmake --build build/book-core-tests-release --target book_core_test -j 2
+(cd build/book-core-tests-release && timeout 60s ./benchmark/book_core_test)
+```
+
+测试日志留在忽略的构建目录内；超时退出码为 124。

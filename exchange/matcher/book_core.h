@@ -26,9 +26,6 @@
 
 namespace exchange {
 
-// 前向声明，避免循环包含。
-class MatchingEngine;
-
 /// 某个标的的完整限价订单簿：买卖两侧各一个 PriceLevels，外加
 /// (client_id, client_order_id) -> 挂单 的索引和出站消息复用缓冲。
 /// 除节点池与按客户端稀疏分配的索引表外，请求路径上没有任何分配。
@@ -38,10 +35,14 @@ class BookCore final {
   ///
   /// @param symbol_id 本簿服务的标的；请求已按标的路由到此。
   /// @param band 该标的的价格带，必须已通过 PriceBand::IsValid()。
-  /// @param engine 宿主撮合引擎，用于发出客户端回报与行情更新。
-  /// @param logger 日志器，仅在拒单等慢路径上使用。
+  /// @param client_responses 客户端回报输出队列，供 OrderManager 消费。
+  /// @param market_updates 行情输出队列，供 MarketDataPublisher 消费。
+  /// 两条队列必须比订单簿存活更久；共用队列的订单簿必须在同一生产线程调用。
+  /// @param logger 日志器，记录拒单、出站消息及撮合计时。
   BookCore(common::SymbolId symbol_id, const PriceBand& band,
-           MatchingEngine* engine, common::Logger* logger);
+           ClientResponseLFQueue& client_responses,
+           MatchingEngineMarketUpdateLFQueue& market_updates,
+           common::Logger* logger);
 
   ~BookCore();
 
@@ -98,6 +99,10 @@ class BookCore final {
   BookCore& operator=(BookCore&&) = delete;
 
  private:
+  // 将复用缓冲中的消息写入相应输出队列。
+  void SendClientResponse() noexcept;
+  void SendMarketUpdate() noexcept;
+
   /// @return 当前市场订单号，并将发号器推进一位。
   common::OrderId NextMarketOrderId() noexcept {
     return next_market_order_id_++;
@@ -160,8 +165,9 @@ class BookCore final {
   common::SymbolId symbol_id_;
   // 价格带：本簿全部价格 <-> tick 转换的唯一来源。
   PriceBand band_;
-  // 宿主撮合引擎，仅用于发出站消息。
-  MatchingEngine* matching_engine_ = nullptr;
+  // 借用输出队列；所有标的共用同一个生产线程。
+  ClientResponseLFQueue& outgoing_client_responses_;
+  MatchingEngineMarketUpdateLFQueue& outgoing_market_updates_;
 
   // 买卖两侧的挂单节点。每个订单簿一个内存池：节点的生命周期即
   // 订单簿的生命周期，无论它挂在哪一侧。
@@ -180,9 +186,9 @@ class BookCore final {
   // 市场订单号发号器，从 1 起。
   common::OrderId next_market_order_id_ = 1;
 
-  // 慢路径复用的时间字符串缓冲，避免日志路径分配。
+  // 日志和计时复用的时间字符串缓冲。
   std::string time_str_;
-  // 日志器，仅在拒单等慢路径上使用。
+  // 日志器，记录拒单、出站消息及撮合计时。
   common::Logger* logger_ = nullptr;
 };
 

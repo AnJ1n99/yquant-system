@@ -11,3 +11,7 @@ find_package(Threads REQUIRED)
 
 add_executable(fast_queue_test FastQueue.cc)
 target_link_libraries(fast_queue_test PRIVATE GTest::gtest Threads::Threads)
+
+# 撮合回归测试复用已有的 GoogleTest 依赖。
+add_executable(book_core_test BookCore.cc)
+target_link_libraries(book_core_test PRIVATE GTest::gtest_main libexchange common)

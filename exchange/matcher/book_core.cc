@@ -5,7 +5,6 @@
 #include "../../common/macros.h"
 #include "../../common/perf_utils.h"
 #include "../../common/time_utils.h"
-#include "matching_engine.h"
 
 namespace exchange {
 
@@ -22,10 +21,13 @@ using common::Side;
 using common::SymbolId;
 
 BookCore::BookCore(SymbolId symbol_id, const PriceBand& band,
-                   MatchingEngine* engine, Logger* logger)
+                   ClientResponseLFQueue& client_responses,
+                   MatchingEngineMarketUpdateLFQueue& market_updates,
+                   Logger* logger)
     : symbol_id_(symbol_id),
       band_(band),
-      matching_engine_(engine),
+      outgoing_client_responses_(client_responses),
+      outgoing_market_updates_(market_updates),
       order_pool_(common::kMaxOrderIds),
       bids_(Side::BUY, &order_pool_),
       asks_(Side::SELL, &order_pool_),
@@ -75,7 +77,7 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
                       price,
                       Quantity_INVALID,
                       quantity};
-  matching_engine_->sendClientResponse(&client_response_);
+  SendClientResponse();
 
   TakerOrder taker{
       .client_id = client_id,
@@ -102,7 +104,7 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
     market_update_ = {
         MarketUpdateType::ADD, symbol_id_,     market_order_id, side, price,
         remaining_quantity,    order->priority};
-    matching_engine_->sendMarketUpdate(&market_update_);
+    SendMarketUpdate();
   }
 }
 
@@ -118,7 +120,7 @@ void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
                         Price_INVALID,
                         Quantity_INVALID,
                         Quantity_INVALID};
-    matching_engine_->sendClientResponse(&client_response_);
+    SendClientResponse();
     return;
   }
 
@@ -132,7 +134,7 @@ void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
       ClientResponseType::CANCELED, client_id, symbol_id_, client_order_id,
       order->market_order_id,       side,      price,      Quantity_INVALID,
       order->remaining_quantity};
-  matching_engine_->sendClientResponse(&client_response_);
+  SendClientResponse();
 
   market_update_ = {MarketUpdateType::CANCEL,
                     symbol_id_,
@@ -141,7 +143,7 @@ void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
                     price,
                     Quantity_INVALID,
                     Priority_INVALID};
-  matching_engine_->sendMarketUpdate(&market_update_);
+  SendMarketUpdate();
 
   UnindexOrder(client_id, client_order_id);
   Levels(side).RemoveOrder(order);
@@ -197,7 +199,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker_price,
                           executed_quantity,
                           taker.quantity};
-      matching_engine_->sendClientResponse(&client_response_);
+      SendClientResponse();
 
       client_response_ = {ClientResponseType::FILLED,
                           maker->client_id,
@@ -208,7 +210,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker_price,
                           executed_quantity,
                           maker->remaining_quantity};
-      matching_engine_->sendClientResponse(&client_response_);
+      SendClientResponse();
 
       market_update_ = {MarketUpdateType::TRADE,
                         symbol_id_,
@@ -217,7 +219,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                         maker_price,
                         executed_quantity,
                         Priority_INVALID};
-      matching_engine_->sendMarketUpdate(&market_update_);
+      SendMarketUpdate();
 
       if (maker->remaining_quantity == 0) {
         market_update_ = {MarketUpdateType::CANCEL,
@@ -227,7 +229,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker_price,
                           Quantity_INVALID,
                           Priority_INVALID};
-        matching_engine_->sendMarketUpdate(&market_update_);
+        SendMarketUpdate();
 
         UnindexOrder(maker->client_id, maker->client_order_id);
         maker_levels.RemoveOrder(maker);
@@ -239,7 +241,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker_price,
                           maker->remaining_quantity,
                           maker->priority};
-        matching_engine_->sendMarketUpdate(&market_update_);
+        SendMarketUpdate();
       }
     }
   }
@@ -274,6 +276,29 @@ void BookCore::UnindexOrder(ClientId client_id,
   if (LIKELY(table != nullptr)) {
     (*table)[client_order_id] = nullptr;
   }
+}
+
+void BookCore::SendMarketUpdate() noexcept {
+  common::GetCurrentTimeStr(time_str_);
+  logger_->log("%:% %() % 发送行情更新： %\n", __FILE__, __LINE__, __FUNCTION__,
+               time_str_, market_update_.toString());
+
+  auto next_write = outgoing_market_updates_.GetNextToWriteTo();
+  *next_write = market_update_;
+  outgoing_market_updates_.UpdateWriteIndex();
+  TTT_MEASURE(T4t_MatchingEngine_LFQueue_write,
+              (*logger_));  // 测量队列写入时间
+}
+
+void BookCore::SendClientResponse() noexcept {
+  common::GetCurrentTimeStr(time_str_);
+  logger_->log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__,
+               time_str_, client_response_.toString());
+  // 写入客户端响应队列
+  auto next_write = outgoing_client_responses_.GetNextToWriteTo();
+  *next_write = client_response_;
+  outgoing_client_responses_.UpdateWriteIndex();
+  TTT_MEASURE(T4_MatchingEngine_LFQueue_write, (*logger_));  // 测量队列写入时间
 }
 
 }  // namespace exchange

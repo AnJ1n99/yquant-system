@@ -15,14 +15,12 @@ MatchingEngine::MatchingEngine(
     ClientRequestLFQueue* clientRequests,
     ClientResponseLFQueue* outgoingResponses,
     MatchingEngineMarketUpdateLFQueue* outgoingUpdates)
-    : incoming_requests(clientRequests),
-      outgoing_client_responses(outgoingResponses),
-      outgoing_market_updates(outgoingUpdates),
-      logger("MatchingEngine.log") {
+    : incoming_requests(clientRequests), logger("MatchingEngine.log") {
   // 使用传入的队列初始化撮合引擎。在标的拥有各自的参考价格之前，
   // 所有订单簿共用同一个价格网格。
   for (size_t i = 0; i < symbol_order_book.size(); ++i) {
-    symbol_order_book[i] = new BookCore(i, kDefaultPriceBand, this, &logger);
+    symbol_order_book[i] = new BookCore(
+        i, kDefaultPriceBand, *outgoingResponses, *outgoingUpdates, &logger);
   }
 }
 
@@ -34,8 +32,6 @@ MatchingEngine::~MatchingEngine() {
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   incoming_requests = nullptr;
-  outgoing_client_responses = nullptr;
-  outgoing_market_updates = nullptr;
 
   for (auto& order_book : symbol_order_book) {
     delete order_book;
@@ -56,7 +52,7 @@ void MatchingEngine::stop() {
   // Stop the matching engine processing and perform cleanup if needed
 }
 
-void MatchingEngine::processClientRequest(
+void MatchingEngine::ProcessClientRequest(
     const MatchingEngineClientRequest* client_request) noexcept {
   // 获取对应symbol的订单簿
   auto* order_book = symbol_order_book[client_request->symbolId_];
@@ -101,7 +97,7 @@ void MatchingEngine::run() {
 
       // 处理客户端请求
       START_MEASURE(Exchange_MatchingEngine_processClientRequest);
-      processClientRequest(client_request);
+      ProcessClientRequest(client_request);
       END_MEASURE(Exchange_MatchingEngine_processClientRequest,
                   logger);  // 测量处理时间
       // 标记已读取完成
@@ -111,30 +107,6 @@ void MatchingEngine::run() {
 
   logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__,
              "MatchingEngine thread stopped");
-}
-
-void MatchingEngine::sendMarketUpdate(
-    const MatchingEngineMarketUpdate* update) noexcept {
-  common::GetCurrentTimeStr(time_str_);
-  logger.log("%:% %() % Sending market update: %\n", __FILE__, __LINE__,
-             __FUNCTION__, time_str_, update->toString());
-
-  auto next_write = outgoing_market_updates->GetNextToWriteTo();
-  *next_write = *update;
-  outgoing_market_updates->UpdateWriteIndex();
-  TTT_MEASURE(T4t_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
-}
-
-void MatchingEngine::sendClientResponse(
-    const MatchingEngineClientResponse* response) noexcept {
-  common::GetCurrentTimeStr(time_str_);
-  logger.log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
-             response->toString());
-  // 写入客户端响应队列
-  auto next_write = outgoing_client_responses->GetNextToWriteTo();
-  *next_write = *response;
-  outgoing_client_responses->UpdateWriteIndex();
-  TTT_MEASURE(T4_MatchingEngine_LFQueue_write, logger);  // 测量队列写入时间
 }
 
 }  // namespace exchange

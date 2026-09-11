@@ -25,13 +25,8 @@ class MatchingEngine final {
   void stop();
 
   // 处理从无锁队列读取的客户端请求（由OrderManager发送）
-  void processClientRequest(
+  void ProcessClientRequest(
       const MatchingEngineClientRequest* clientRequest) noexcept;
-  // 将客户端响应写入无锁队列，供OrderManager消费
-  void sendClientResponse(
-      const MatchingEngineClientResponse* response) noexcept;
-  // 将市场更新写入无锁队列，供MarketDataPublisher消费
-  void sendMarketUpdate(const MatchingEngineMarketUpdate* update) noexcept;
 
   // 禁用拷贝构造函数、移动构造函数、拷贝赋值操作符和移动赋值操作符
   MatchingEngine() = delete;
@@ -46,14 +41,8 @@ class MatchingEngine final {
   // symbol 到 BookCore 的直接索引表
   OrderBookHashMap symbol_order_book;
 
-  // 无锁队列：
-  // 一个用于消费 OrderManager 发送的传入客户端请求
-  // 第二个用于发布 outgoing ClientResponses，供OrderManager消费
-  // 第三个用于发布 outgoing 市场更新，供市场数据发布器消费
-
+  // 消费 OrderManager 发送的客户端请求；输出队列直接交给订单簿。
   ClientRequestLFQueue* incoming_requests = nullptr;
-  ClientResponseLFQueue* outgoing_client_responses = nullptr;
-  MatchingEngineMarketUpdateLFQueue* outgoing_market_updates = nullptr;
 
   volatile bool running_ = false;
 
