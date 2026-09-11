@@ -43,7 +43,8 @@ auto TCPSocket::sendAndRecv() noexcept -> bool {
     next_recv_valid_index_ += readSize;
     Nanos kernelTime = 0;
     timeval timeKernel;
-    if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMP &&
+    if (cmsg->cmsg_level == SOL_SOCKET && 
+        cmsg->cmsg_type == SCM_TIMESTAMP &&
         cmsg->cmsg_len == CMSG_LEN(sizeof(timeKernel))) {
       memcpy(&timeKernel, CMSG_DATA(cmsg), sizeof(timeKernel));
       kernelTime = timeKernel.tv_sec * NANOS_TO_SECS +
