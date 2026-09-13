@@ -48,24 +48,6 @@ BookCore::~BookCore() {
 void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
                    Price price, Quantity quantity) noexcept {
   const Tick tick = band_.ToTick(price);
-  const bool valid = IsIndexable(client_id, client_order_id) &&
-                     (side == Side::BUY || side == Side::SELL) &&
-                     quantity > 0 && quantity != Quantity_INVALID &&
-                     tick != kInvalidTick;
-
-  if (UNLIKELY(!valid)) {
-    // 目前还没有针对被拒新订单的响应类型，因此请求被丢弃并记入日志。
-    // TODO: 待客户端协议支持 REJECTED 响应后再上报。记录原始值而非
-    // *ToString() 辅助函数：这里仍处于请求路径，不允许分配内存。
-    common::GetCurrentTimeStr(time_str_);
-    logger_->log(
-        "%:% %() % Dropped unusable order: client:% oid:% side:% price:% "
-        "quantity:%\n",
-        __FILE__, __LINE__, __FUNCTION__, time_str_, client_id, client_order_id,
-        static_cast<int>(side), price, quantity);
-    return;
-  }
-
   const auto market_order_id = NextMarketOrderId();
 
   client_response_ = {ClientResponseType::ACCEPTED,
@@ -251,9 +233,6 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
 
 OrderNode* BookCore::FindOrder(ClientId client_id,
                                OrderId client_order_id) const noexcept {
-  if (UNLIKELY(!IsIndexable(client_id, client_order_id))) {
-    return nullptr;
-  }
   const auto* table = orders_[client_id];
   return (table != nullptr) ? (*table)[client_order_id] : nullptr;
 }

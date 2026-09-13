@@ -38,7 +38,7 @@ class BookCore final {
   /// @param client_responses 客户端回报输出队列，供 OrderManager 消费。
   /// @param market_updates 行情输出队列，供 MarketDataPublisher 消费。
   /// 两条队列必须比订单簿存活更久；共用队列的订单簿必须在同一生产线程调用。
-  /// @param logger 日志器，记录拒单、出站消息及撮合计时。
+  /// @param logger 日志器，记录出站消息及撮合计时。
   BookCore(common::SymbolId symbol_id, const PriceBand& band,
            ClientResponseLFQueue& client_responses,
            MatchingEngineMarketUpdateLFQueue& market_updates,
@@ -50,23 +50,22 @@ class BookCore final {
   /// 剩余数量转为挂单并对市场可见。标的即本订单簿自身的标的，调用方
   /// 已据此路由到此。
   ///
-  /// 不可寻址的订单号、非法方向、非正数量或价格带外的价格会被丢弃并
-  /// 记入日志——协议尚无针对被拒新订单的响应类型。
+  /// 调用方必须保证以下输入条件；本函数不负责非法输入的校验与拒单。
   ///
-  /// @param client_id 下单客户端。
-  /// @param client_order_id 客户端侧订单号。
+  /// @param client_id 下单客户端，必须小于 common::kMaxNumClients。
+  /// @param client_order_id 客户端侧订单号，必须小于 common::kMaxOrderIds。
   /// @param side 方向，BUY 或 SELL。
   /// @param price 限价，必须落在价格带内且对齐 tick 边界。
-  /// @param quantity 委托数量，必须为正。
+  /// @param quantity 委托数量，必须为正且不为 common::Quantity_INVALID。
   void Add(common::ClientId client_id, common::OrderId client_order_id,
            common::Side side, common::Price price,
            common::Quantity quantity) noexcept;
 
-  /// 移除一笔挂单：回报 CANCELED 并发出对应的行情更新；订单号未知时
-  /// 改为回报 CANCEL_REJECTED。
+  /// 移除一笔挂单：回报 CANCELED 并发出对应的行情更新；订单号可寻址
+  /// 但不存在对应挂单时，回报 CANCEL_REJECTED。本函数不检查输入边界。
   ///
-  /// @param client_id 请求撤单的客户端。
-  /// @param client_order_id 要撤销的客户端侧订单号。
+  /// @param client_id 请求撤单的客户端，必须小于 common::kMaxNumClients。
+  /// @param client_order_id 客户端侧订单号，必须小于 common::kMaxOrderIds。
   void Cancel(common::ClientId client_id,
               common::OrderId client_order_id) noexcept;
 
@@ -126,23 +125,13 @@ class BookCore final {
   /// @return taker 的剩余数量，也就是将要转为挂单的部分。
   common::Quantity Match(TakerOrder& taker) noexcept;
 
-  // 订单号索引。超出可寻址范围的订单号会被拒绝而非索引：这些表是
-  // 直接索引数组，未校验的订单号会越界读写。
-  //
-  /// @param client_id 客户端号。
-  /// @param client_order_id 客户端侧订单号。
-  /// @return 两者都落在各自直接索引表的容量内时为 true。
-  static bool IsIndexable(common::ClientId client_id,
-                          common::OrderId client_order_id) noexcept {
-    return client_id < common::kMaxNumClients &&
-           client_order_id < common::kMaxOrderIds;
-  }
+  // 订单号索引。调用方必须保证客户端号和订单号在直接索引表的容量内。
 
   /// 按订单号索引查找一笔挂单。
   ///
-  /// @param client_id 客户端号，调用方需已通过 IsIndexable()。
-  /// @param client_order_id 客户端侧订单号，同上。
-  /// @return 对应挂单节点；无索引或不可寻址时为 null。
+  /// @param client_id 客户端号，必须小于 common::kMaxNumClients。
+  /// @param client_order_id 客户端侧订单号，必须小于 common::kMaxOrderIds。
+  /// @return 对应挂单节点；无索引或不存在对应挂单时为 null。
   OrderNode* FindOrder(common::ClientId client_id,
                        common::OrderId client_order_id) const noexcept;
 
@@ -188,7 +177,7 @@ class BookCore final {
 
   // 日志和计时复用的时间字符串缓冲。
   std::string time_str_;
-  // 日志器，记录拒单、出站消息及撮合计时。
+  // 日志器，记录出站消息及撮合计时。
   common::Logger* logger_ = nullptr;
 };
 

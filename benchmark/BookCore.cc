@@ -41,6 +41,9 @@ class BookCoreOutputTest : public ::testing::Test {
                                            responses_, updates_, &logger_);
 };
 
+class BookCoreSideTest : public BookCoreOutputTest,
+                         public ::testing::WithParamInterface<Side> {};
+
 TEST_F(BookCoreOutputTest, AddAndCancel) {
   book_->Add(1, 10, Side::BUY, 100, 7);
   book_->Cancel(1, 10);
@@ -70,93 +73,187 @@ TEST_F(BookCoreOutputTest, UnknownCancelOnlyEmitsRejection) {
   ExpectMessages(updates_, {});
 }
 
-TEST_F(BookCoreOutputTest, PartialThenFullFill) {
-  book_->Add(1, 10, Side::SELL, 100, 10);
-  book_->Add(2, 20, Side::BUY, 101, 4);
-  book_->Add(2, 21, Side::BUY, 101, 6);
+TEST_P(BookCoreSideTest, PartialThenFullFill) {
+  const Side taker_side = GetParam();
+  const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
+  const common::Price limit = taker_side == Side::BUY ? 101 : 99;
+  book_->Add(1, 10, maker_side, 100, 10);
+  book_->Add(2, 20, taker_side, limit, 4);
+  book_->Add(2, 21, taker_side, limit, 6);
 
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, Side::SELL, 100,
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100,
            Quantity_INVALID, 10},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, Side::BUY, 101,
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit,
            Quantity_INVALID, 4},
-          {ClientResponseType::FILLED, 2, 0, 20, 2, Side::BUY, 100, 4, 0},
-          {ClientResponseType::FILLED, 1, 0, 10, 1, Side::SELL, 100, 4, 6},
-          {ClientResponseType::ACCEPTED, 2, 0, 21, 3, Side::BUY, 101,
+          {ClientResponseType::FILLED, 2, 0, 20, 2, taker_side, 100, 4, 0},
+          {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 100, 4, 6},
+          {ClientResponseType::ACCEPTED, 2, 0, 21, 3, taker_side, limit,
            Quantity_INVALID, 6},
-          {ClientResponseType::FILLED, 2, 0, 21, 3, Side::BUY, 100, 6, 0},
-          {ClientResponseType::FILLED, 1, 0, 10, 1, Side::SELL, 100, 6, 0},
+          {ClientResponseType::FILLED, 2, 0, 21, 3, taker_side, 100, 6, 0},
+          {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 100, 6, 0},
       });
   ExpectMessages(
       updates_,
       {
-          {MarketUpdateType::ADD, 0, 1, Side::SELL, 100, 10, 1},
-          {MarketUpdateType::TRADE, 0, 1, Side::SELL, 100, 4, Priority_INVALID},
-          {MarketUpdateType::MODIFY, 0, 1, Side::SELL, 100, 6, 1},
-          {MarketUpdateType::TRADE, 0, 1, Side::SELL, 100, 6, Priority_INVALID},
-          {MarketUpdateType::CANCEL, 0, 1, Side::SELL, 100, Quantity_INVALID,
+          {MarketUpdateType::ADD, 0, 1, maker_side, 100, 10, 1},
+          {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 4, Priority_INVALID},
+          {MarketUpdateType::MODIFY, 0, 1, maker_side, 100, 6, 1},
+          {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 6, Priority_INVALID},
+          {MarketUpdateType::CANCEL, 0, 1, maker_side, 100, Quantity_INVALID,
            Priority_INVALID},
       });
 }
 
-TEST_F(BookCoreOutputTest, SellRemainderBecomesRestingOrder) {
-  book_->Add(1, 10, Side::BUY, 100, 3);
-  book_->Add(2, 20, Side::SELL, 99, 5);
+TEST_P(BookCoreSideTest, RemainderBecomesRestingOrder) {
+  const Side taker_side = GetParam();
+  const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
+  const common::Price limit = taker_side == Side::BUY ? 101 : 99;
+  book_->Add(1, 10, maker_side, 100, 3);
+  book_->Add(2, 20, taker_side, limit, 5);
 
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, Side::BUY, 100,
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100,
            Quantity_INVALID, 3},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, Side::SELL, 99,
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit,
            Quantity_INVALID, 5},
-          {ClientResponseType::FILLED, 2, 0, 20, 2, Side::SELL, 100, 3, 2},
-          {ClientResponseType::FILLED, 1, 0, 10, 1, Side::BUY, 100, 3, 0},
+          {ClientResponseType::FILLED, 2, 0, 20, 2, taker_side, 100, 3, 2},
+          {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 100, 3, 0},
       });
   ExpectMessages(
       updates_,
       {
-          {MarketUpdateType::ADD, 0, 1, Side::BUY, 100, 3, 1},
-          {MarketUpdateType::TRADE, 0, 1, Side::BUY, 100, 3, Priority_INVALID},
-          {MarketUpdateType::CANCEL, 0, 1, Side::BUY, 100, Quantity_INVALID,
+          {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
+          {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 3, Priority_INVALID},
+          {MarketUpdateType::CANCEL, 0, 1, maker_side, 100, Quantity_INVALID,
            Priority_INVALID},
-          {MarketUpdateType::ADD, 0, 2, Side::SELL, 99, 2, 1},
+          {MarketUpdateType::ADD, 0, 2, taker_side, limit, 2, 1},
       });
 }
 
-TEST_F(BookCoreOutputTest, FillsFollowMakerFifoOrder) {
-  book_->Add(1, 10, Side::SELL, 100, 3);
-  book_->Add(1, 11, Side::SELL, 100, 4);
-  book_->Add(2, 20, Side::BUY, 100, 6);
+TEST_P(BookCoreSideTest, FillsFollowMakerFifoOrder) {
+  const Side taker_side = GetParam();
+  const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
+  book_->Add(1, 10, maker_side, 100, 3);
+  book_->Add(1, 11, maker_side, 100, 4);
+  book_->Add(2, 20, taker_side, 100, 6);
 
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, Side::SELL, 100,
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100,
            Quantity_INVALID, 3},
-          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, Side::SELL, 100,
+          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 100,
            Quantity_INVALID, 4},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 3, Side::BUY, 100,
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 3, taker_side, 100,
            Quantity_INVALID, 6},
-          {ClientResponseType::FILLED, 2, 0, 20, 3, Side::BUY, 100, 3, 3},
-          {ClientResponseType::FILLED, 1, 0, 10, 1, Side::SELL, 100, 3, 0},
-          {ClientResponseType::FILLED, 2, 0, 20, 3, Side::BUY, 100, 3, 0},
-          {ClientResponseType::FILLED, 1, 0, 11, 2, Side::SELL, 100, 3, 1},
+          {ClientResponseType::FILLED, 2, 0, 20, 3, taker_side, 100, 3, 3},
+          {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 100, 3, 0},
+          {ClientResponseType::FILLED, 2, 0, 20, 3, taker_side, 100, 3, 0},
+          {ClientResponseType::FILLED, 1, 0, 11, 2, maker_side, 100, 3, 1},
       });
   ExpectMessages(
       updates_,
       {
-          {MarketUpdateType::ADD, 0, 1, Side::SELL, 100, 3, 1},
-          {MarketUpdateType::ADD, 0, 2, Side::SELL, 100, 4, 2},
-          {MarketUpdateType::TRADE, 0, 1, Side::SELL, 100, 3, Priority_INVALID},
-          {MarketUpdateType::CANCEL, 0, 1, Side::SELL, 100, Quantity_INVALID,
+          {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
+          {MarketUpdateType::ADD, 0, 2, maker_side, 100, 4, 2},
+          {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 3, Priority_INVALID},
+          {MarketUpdateType::CANCEL, 0, 1, maker_side, 100, Quantity_INVALID,
            Priority_INVALID},
-          {MarketUpdateType::TRADE, 0, 2, Side::SELL, 100, 3, Priority_INVALID},
-          {MarketUpdateType::MODIFY, 0, 2, Side::SELL, 100, 1, 2},
+          {MarketUpdateType::TRADE, 0, 2, maker_side, 100, 3, Priority_INVALID},
+          {MarketUpdateType::MODIFY, 0, 2, maker_side, 100, 1, 2},
       });
 }
+
+TEST_P(BookCoreSideTest, EmptyBookRestsOrder) {
+  const Side side = GetParam();
+  book_->Add(1, 10, side, 100, 7);
+
+  ExpectMessages(responses_, {{ClientResponseType::ACCEPTED, 1, 0, 10, 1, side,
+                               100, Quantity_INVALID, 7}});
+  ExpectMessages(updates_, {{MarketUpdateType::ADD, 0, 1, side, 100, 7, 1}});
+}
+
+TEST_P(BookCoreSideTest, NonCrossingOrderLeavesMakerUntouched) {
+  const Side taker_side = GetParam();
+  const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
+  const common::Price limit = taker_side == Side::BUY ? 99 : 101;
+  book_->Add(1, 10, maker_side, 100, 3);
+  book_->Add(2, 20, taker_side, limit, 5);
+  book_->Cancel(1, 10);
+
+  ExpectMessages(responses_, {
+                                 {ClientResponseType::ACCEPTED, 1, 0, 10, 1,
+                                  maker_side, 100, Quantity_INVALID, 3},
+                                 {ClientResponseType::ACCEPTED, 2, 0, 20, 2,
+                                  taker_side, limit, Quantity_INVALID, 5},
+                                 {ClientResponseType::CANCELED, 1, 0, 10, 1,
+                                  maker_side, 100, Quantity_INVALID, 3},
+                             });
+  ExpectMessages(updates_,
+                 {
+                     {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
+                     {MarketUpdateType::ADD, 0, 2, taker_side, limit, 5, 1},
+                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 100,
+                      Quantity_INVALID, Priority_INVALID},
+                 });
+}
+
+TEST_P(BookCoreSideTest, MultipleLevelsFollowPricePriorityAndStopAtLimit) {
+  const Side taker_side = GetParam();
+  const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
+  const common::Price limit = taker_side == Side::BUY ? 101 : 99;
+  const common::Price outside = taker_side == Side::BUY ? 103 : 97;
+  // 先放较差价位，验证撮合按价格而非跨价位的到达顺序进行。
+  book_->Add(1, 10, maker_side, limit, 3);
+  book_->Add(1, 11, maker_side, 100, 2);
+  book_->Add(1, 12, maker_side, outside, 4);
+  book_->Add(2, 20, taker_side, limit, 8);
+  book_->Cancel(1, 12);
+
+  ExpectMessages(
+      responses_,
+      {
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, limit,
+           Quantity_INVALID, 3},
+          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 100,
+           Quantity_INVALID, 2},
+          {ClientResponseType::ACCEPTED, 1, 0, 12, 3, maker_side, outside,
+           Quantity_INVALID, 4},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 4, taker_side, limit,
+           Quantity_INVALID, 8},
+          {ClientResponseType::FILLED, 2, 0, 20, 4, taker_side, 100, 2, 6},
+          {ClientResponseType::FILLED, 1, 0, 11, 2, maker_side, 100, 2, 0},
+          {ClientResponseType::FILLED, 2, 0, 20, 4, taker_side, limit, 3, 3},
+          {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, limit, 3, 0},
+          {ClientResponseType::CANCELED, 1, 0, 12, 3, maker_side, outside,
+           Quantity_INVALID, 4},
+      });
+  ExpectMessages(
+      updates_,
+      {
+          {MarketUpdateType::ADD, 0, 1, maker_side, limit, 3, 1},
+          {MarketUpdateType::ADD, 0, 2, maker_side, 100, 2, 1},
+          {MarketUpdateType::ADD, 0, 3, maker_side, outside, 4, 1},
+          {MarketUpdateType::TRADE, 0, 2, maker_side, 100, 2, Priority_INVALID},
+          {MarketUpdateType::CANCEL, 0, 2, maker_side, 100, Quantity_INVALID,
+           Priority_INVALID},
+          {MarketUpdateType::TRADE, 0, 1, maker_side, limit, 3,
+           Priority_INVALID},
+          {MarketUpdateType::CANCEL, 0, 1, maker_side, limit, Quantity_INVALID,
+           Priority_INVALID},
+          {MarketUpdateType::ADD, 0, 4, taker_side, limit, 3, 1},
+          {MarketUpdateType::CANCEL, 0, 3, maker_side, outside,
+           Quantity_INVALID, Priority_INVALID},
+      });
+}
+
+INSTANTIATE_TEST_SUITE_P(BothSides, BookCoreSideTest,
+                         ::testing::Values(Side::BUY, Side::SELL));
 
 TEST(MatchingEngineOutputTest, SymbolsShareOutputQueuesWithoutCrossMatching) {
   exchange::ClientRequestLFQueue requests{64};
