@@ -113,16 +113,12 @@ class BookCore final {
     return (side == common::Side::BUY) ? bids_ : asks_;
   }
 
-  /// @param side 方向。
-  /// @return `side` 的对手方向单侧订单簿。
-  PriceLevels& OppositeLevels(common::Side side) noexcept {
-    return (side == common::Side::BUY) ? asks_ : bids_;
-  }
-
   /// 让 taker 与对手方挂单撮合并回报每一笔成交。
   ///
+  /// @tparam IsBid 进攻单是否为买单，必须与 taker.side 一致。
   /// @param taker 进攻单；其 quantity 在撮合中被逐笔消耗。
   /// @return taker 的剩余数量，也就是将要转为挂单的部分。
+  template <bool IsBid>
   common::Quantity Match(TakerOrder& taker) noexcept;
 
   // 订单号索引。调用方必须保证客户端号和订单号在直接索引表的容量内。

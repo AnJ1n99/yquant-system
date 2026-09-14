@@ -71,7 +71,8 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
   };
 
   START_MEASURE(Exchange_BookCore_Match);
-  const auto remaining_quantity = Match(taker);
+  const auto remaining_quantity =
+      side == Side::BUY ? Match<true>(taker) : Match<false>(taker);
   END_MEASURE(Exchange_BookCore_Match, (*logger_));
 
   // 撮合后剩余的部分转为挂单，并对市场可见。
@@ -137,11 +138,11 @@ std::string BookCore::toString([[maybe_unused]] bool detailed,
   return "";
 }
 
+template <bool IsBid>
 Quantity BookCore::Match(TakerOrder& taker) noexcept {
-  auto& maker_levels = OppositeLevels(taker.side);
-  const bool taker_buys = (taker.side == Side::BUY);
+  auto& maker_levels = IsBid ? asks_ : bids_;
   // 被成交一侧的方向在整个撮合过程中恒定：即进攻方的对手方向。
-  const Side maker_side = taker_buys ? Side::SELL : Side::BUY;
+  constexpr Side maker_side = IsBid ? Side::SELL : Side::BUY;
 
   // 外层循环：价格层级，最优优先。内层循环：该层级的 FIFO。
   while (taker.quantity > 0) {
@@ -153,10 +154,14 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
     const auto& level = maker_levels.LevelAt(maker_tick);
 
     const auto maker_price = band_.ToPrice(maker_tick);
-    const bool crosses = taker_buys ? (maker_price <= taker.price)
-                                    : (maker_price >= taker.price);
-    if (!crosses) {
-      break;
+    if constexpr (IsBid) {
+      if (maker_price > taker.price) {
+        break;
+      }
+    } else {
+      if (maker_price < taker.price) {
+        break;
+      }
     }
 
     while (taker.quantity > 0) {
