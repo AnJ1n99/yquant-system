@@ -35,10 +35,9 @@ class BookCoreOutputTest : public ::testing::Test {
  protected:
   exchange::ClientResponseLFQueue responses_{64};
   exchange::MatchingEngineMarketUpdateLFQueue updates_{64};
-  common::Logger logger_{"BookCoreTest.log"};
   std::unique_ptr<exchange::BookCore> book_ =
       std::make_unique<exchange::BookCore>(0, exchange::kDefaultPriceBand,
-                                           responses_, updates_, &logger_);
+                                           responses_, updates_);
 };
 
 class BookCoreSideTest : public BookCoreOutputTest,

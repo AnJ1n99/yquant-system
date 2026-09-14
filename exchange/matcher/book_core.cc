@@ -3,13 +3,10 @@
 #include <algorithm>
 
 #include "../../common/macros.h"
-#include "../../common/perf_utils.h"
-#include "../../common/time_utils.h"
 
 namespace exchange {
 
 using common::ClientId;
-using common::Logger;
 using common::OrderId;
 using common::OrderId_INVALID;
 using common::Price;
@@ -22,16 +19,14 @@ using common::SymbolId;
 
 BookCore::BookCore(SymbolId symbol_id, const PriceBand& band,
                    ClientResponseLFQueue& client_responses,
-                   MatchingEngineMarketUpdateLFQueue& market_updates,
-                   Logger* logger)
+                   MatchingEngineMarketUpdateLFQueue& market_updates)
     : symbol_id_(symbol_id),
       band_(band),
       outgoing_client_responses_(client_responses),
       outgoing_market_updates_(market_updates),
       order_pool_(common::kMaxOrderIds),
       bids_(Side::BUY, &order_pool_),
-      asks_(Side::SELL, &order_pool_),
-      logger_(logger) {
+      asks_(Side::SELL, &order_pool_) {
   ASSERT(band_.IsValid(), "Price band must be positive and representable");
   orders_.fill(nullptr);
 }
@@ -70,16 +65,12 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
       .quantity = quantity,
   };
 
-  START_MEASURE(Exchange_BookCore_Match);
   const auto remaining_quantity = Match(taker);
-  END_MEASURE(Exchange_BookCore_Match, (*logger_));
 
   // 撮合后剩余的部分转为挂单，并对市场可见。
   if (LIKELY(remaining_quantity > 0)) {
-    START_MEASURE(Exchange_BookCore_AddOrder);
     auto* order = Levels(side).AddOrder(tick, client_id, client_order_id,
                                         market_order_id, remaining_quantity);
-    END_MEASURE(Exchange_BookCore_AddOrder, (*logger_));
 
     IndexOrder(client_id, client_order_id, order);
 
@@ -258,26 +249,16 @@ void BookCore::UnindexOrder(ClientId client_id,
 }
 
 void BookCore::SendMarketUpdate() noexcept {
-  common::GetCurrentTimeStr(time_str_);
-  logger_->log("%:% %() % 发送行情更新： %\n", __FILE__, __LINE__, __FUNCTION__,
-               time_str_, market_update_.toString());
-
   auto next_write = outgoing_market_updates_.GetNextToWriteTo();
   *next_write = market_update_;
   outgoing_market_updates_.UpdateWriteIndex();
-  TTT_MEASURE(T4t_MatchingEngine_LFQueue_write,
-              (*logger_));  // 测量队列写入时间
 }
 
 void BookCore::SendClientResponse() noexcept {
-  common::GetCurrentTimeStr(time_str_);
-  logger_->log("%:% %() % 发送 %\n", __FILE__, __LINE__, __FUNCTION__,
-               time_str_, client_response_.toString());
   // 写入客户端响应队列
   auto next_write = outgoing_client_responses_.GetNextToWriteTo();
   *next_write = client_response_;
   outgoing_client_responses_.UpdateWriteIndex();
-  TTT_MEASURE(T4_MatchingEngine_LFQueue_write, (*logger_));  // 测量队列写入时间
 }
 
 }  // namespace exchange

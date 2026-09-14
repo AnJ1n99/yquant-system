@@ -6,7 +6,6 @@
 
 #include <streambuf>
 
-#include "../../common/logging.h"
 #include "../market_data/market_update.h"
 #include "../order_manager/client_request.h"
 #include "../order_manager/client_response.h"
@@ -45,9 +44,6 @@ class MatchingEngine final {
   ClientRequestLFQueue* incoming_requests = nullptr;
 
   volatile bool running_ = false;
-
-  std::string time_str_;
-  common::Logger logger;
 };
 
 }  // namespace exchange

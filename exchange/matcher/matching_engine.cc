@@ -3,9 +3,8 @@
 #include <chrono>
 #include <cstddef>
 
-#include "../../common/logging.h"
+#include "../../common/macros.h"
 #include "../../common/thread_utils.h"
-#include "../../common/time_utils.h"
 
 // TODO: SHARDING
 
@@ -15,12 +14,12 @@ MatchingEngine::MatchingEngine(
     ClientRequestLFQueue* clientRequests,
     ClientResponseLFQueue* outgoingResponses,
     MatchingEngineMarketUpdateLFQueue* outgoingUpdates)
-    : incoming_requests(clientRequests), logger("MatchingEngine.log") {
+    : incoming_requests(clientRequests) {
   // 使用传入的队列初始化撮合引擎。在标的拥有各自的参考价格之前，
   // 所有订单簿共用同一个价格网格。
   for (size_t i = 0; i < symbol_order_book.size(); ++i) {
-    symbol_order_book[i] = new BookCore(
-        i, kDefaultPriceBand, *outgoingResponses, *outgoingUpdates, &logger);
+    symbol_order_book[i] = new BookCore(i, kDefaultPriceBand,
+                                        *outgoingResponses, *outgoingUpdates);
   }
 }
 
@@ -60,16 +59,12 @@ void MatchingEngine::ProcessClientRequest(
   switch (client_request->type_) {
     case ClientRequestType::NEW: {
       // 添加订单刀订单薄
-      START_MEASURE(Exchange_BookCore_Add);
       order_book->Add(client_request->clientId_, client_request->orderId_,
                       client_request->side_, client_request->price_,
                       client_request->quantity_);
-      END_MEASURE(Exchange_BookCore_Add, logger);
     } break;
     case ClientRequestType::CANCELED: {
-      START_MEASURE(Exchange_MatchingEngine_Cancel);
       order_book->Cancel(client_request->clientId_, client_request->orderId_);
-      END_MEASURE(Exchange_MatchingEngine_Cancel, logger);
     } break;
     default: {
       FATAL("收到无效的客户端请求类型：" +
@@ -79,34 +74,17 @@ void MatchingEngine::ProcessClientRequest(
 }
 
 void MatchingEngine::run() {
-  common::GetCurrentTimeStr(time_str_);
-  logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__,
-             "MatchingEngine thread started at " + time_str_);
-
   while (running_) {
     // 从客户端请求队列中读取请求
     const auto client_request = incoming_requests->GetNextToRead();
 
     if (LIKELY(client_request)) {
-      TTT_MEASURE(T3_MatchingEngine_LFQueue_read, logger);  // 测量队列读取时间
-
-      // 记录日志
-      common::GetCurrentTimeStr(time_str_);
-      logger.log("%:% %() % Processing request: %\n", __FILE__, __LINE__,
-                 __FUNCTION__, time_str_, client_request->toString());
-
       // 处理客户端请求
-      START_MEASURE(Exchange_MatchingEngine_processClientRequest);
       ProcessClientRequest(client_request);
-      END_MEASURE(Exchange_MatchingEngine_processClientRequest,
-                  logger);  // 测量处理时间
       // 标记已读取完成
       incoming_requests->UpdateReadIndex();
     }
   }
-
-  logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__,
-             "MatchingEngine thread stopped");
 }
 
 }  // namespace exchange

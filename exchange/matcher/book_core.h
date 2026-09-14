@@ -17,7 +17,6 @@
 #include <array>
 #include <string>
 
-#include "../../common/logging.h"
 #include "../../common/mem_pool.h"
 #include "../../common/types.h"
 #include "../market_data/market_update.h"
@@ -38,11 +37,9 @@ class BookCore final {
   /// @param client_responses 客户端回报输出队列，供 OrderManager 消费。
   /// @param market_updates 行情输出队列，供 MarketDataPublisher 消费。
   /// 两条队列必须比订单簿存活更久；共用队列的订单簿必须在同一生产线程调用。
-  /// @param logger 日志器，记录出站消息及撮合计时。
   BookCore(common::SymbolId symbol_id, const PriceBand& band,
            ClientResponseLFQueue& client_responses,
-           MatchingEngineMarketUpdateLFQueue& market_updates,
-           common::Logger* logger);
+           MatchingEngineMarketUpdateLFQueue& market_updates);
 
   ~BookCore();
 
@@ -174,11 +171,6 @@ class BookCore final {
 
   // 市场订单号发号器，从 1 起。
   common::OrderId next_market_order_id_ = 1;
-
-  // 日志和计时复用的时间字符串缓冲。
-  std::string time_str_;
-  // 日志器，记录出站消息及撮合计时。
-  common::Logger* logger_ = nullptr;
 };
 
 // 标的 -> 订单簿。

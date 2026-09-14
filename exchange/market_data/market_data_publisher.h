@@ -4,6 +4,7 @@
 #include <string>
 #include <thread>
 
+#include "../common/logging.h"
 #include "../common/ringBuffer.h"
 #include "../common/types.h"
 #include "../matcher/book_core.h"
