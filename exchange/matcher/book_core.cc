@@ -42,7 +42,7 @@ BookCore::~BookCore() {
 
 void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
                    Price price, Quantity quantity) noexcept {
-  const Tick tick = band_.ToTick(price);
+  const Tick limit_tick = band_.ToTick(price);
   const auto market_order_id = NextMarketOrderId();
 
   client_response_ = {ClientResponseType::ACCEPTED,
@@ -61,7 +61,7 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
       .client_order_id = client_order_id,
       .market_order_id = market_order_id,
       .side = side,
-      .price = price,
+      .limit_tick = limit_tick,
       .quantity = quantity,
   };
 
@@ -69,7 +69,7 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
 
   // 撮合后剩余的部分转为挂单，并对市场可见。
   if (LIKELY(remaining_quantity > 0)) {
-    auto* order = Levels(side).AddOrder(tick, client_id, client_order_id,
+    auto* order = Levels(side).AddOrder(limit_tick, client_id, client_order_id,
                                         market_order_id, remaining_quantity);
 
     IndexOrder(client_id, client_order_id, order);
@@ -140,14 +140,15 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
     if (UNLIKELY(maker_tick == kInvalidTick)) {
       break;
     }
-    const auto& level = maker_levels.LevelAt(maker_tick);
-
-    const auto maker_price = band_.ToPrice(maker_tick);
-    const bool crosses = taker_buys ? (maker_price <= taker.price)
-                                    : (maker_price >= taker.price);
+    const bool crosses = taker_buys ? (maker_tick <= taker.limit_tick)
+                                    : (maker_tick >= taker.limit_tick);
     if (!crosses) {
       break;
     }
+
+    const auto& level = maker_levels.LevelAt(maker_tick);
+    // 仅为出站消息转换价格，同价位的所有成交复用该值。
+    const auto execution_price = band_.ToPrice(maker_tick);
 
     while (taker.quantity > 0) {
       // 清空价位后槽位仍可寻址且为空，因此即使最后一个节点已归还内存池，
@@ -168,7 +169,7 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           taker.client_order_id,
                           taker.market_order_id,
                           taker.side,
-                          maker_price,
+                          execution_price,
                           executed_quantity,
                           taker.quantity};
       SendClientResponse();
@@ -179,39 +180,30 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker->client_order_id,
                           maker->market_order_id,
                           maker_side,
-                          maker_price,
+                          execution_price,
                           executed_quantity,
                           maker->remaining_quantity};
       SendClientResponse();
 
-      market_update_ = {MarketUpdateType::TRADE,
-                        symbol_id_,
-                        maker->market_order_id,
-                        maker_side,
-                        maker_price,
-                        executed_quantity,
+      market_update_ = {MarketUpdateType::TRADE, symbol_id_,
+                        maker->market_order_id,  maker_side,
+                        execution_price,         executed_quantity,
                         Priority_INVALID};
       SendMarketUpdate();
 
       if (maker->remaining_quantity == 0) {
-        market_update_ = {MarketUpdateType::CANCEL,
-                          symbol_id_,
-                          maker->market_order_id,
-                          maker_side,
-                          maker_price,
-                          Quantity_INVALID,
+        market_update_ = {MarketUpdateType::CANCEL, symbol_id_,
+                          maker->market_order_id,   maker_side,
+                          execution_price,          Quantity_INVALID,
                           Priority_INVALID};
         SendMarketUpdate();
 
         UnindexOrder(maker->client_id, maker->client_order_id);
         maker_levels.RemoveOrder(maker);
       } else {
-        market_update_ = {MarketUpdateType::MODIFY,
-                          symbol_id_,
-                          maker->market_order_id,
-                          maker_side,
-                          maker_price,
-                          maker->remaining_quantity,
+        market_update_ = {MarketUpdateType::MODIFY, symbol_id_,
+                          maker->market_order_id,   maker_side,
+                          execution_price,          maker->remaining_quantity,
                           maker->priority};
         SendMarketUpdate();
       }

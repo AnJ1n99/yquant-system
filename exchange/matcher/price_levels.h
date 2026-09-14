@@ -30,7 +30,7 @@ namespace exchange {
 // kInvalidTick。
 using Tick = std::int32_t;
 
-// 超出价格带范围、或不在 tick 边界上的价格。
+// 单侧订单簿为空时的最优 tick 哨兵。
 constexpr Tick kInvalidTick = -1;
 
 // 单个订单簿单侧可寻址的 tick 数量。
@@ -43,19 +43,15 @@ struct PriceBand {
   common::Price tick_size = 1;   // 最小价格增量，必须大于 0
 
   /// 将绝对价格映射为网格上的 tick。
-
-  /// 低于价格带、超出最后一个 tick、或落在两个 tick 之间的价格会被拒绝，
-  /// 而不会就近归入相邻价位：把订单悄悄移到客户从未报出的价格上，比直接拒绝更糟。
-  
-  /// @param price 待映射的绝对价格。
-  /// @return 对应的网格位置；不可表示时为 kInvalidTick。
+  ///
+  /// 不做任何校验：价格带与 tick 对齐检查属于 OrderManager 的风控职责，
+  /// 撮合器假定到达的价格已经有效。未对齐的价格会被截断到更低的 tick，
+  /// 越出价格带的价格会得到越界的 tick。
+  ///
+  /// @param price 待映射的绝对价格，必须在价格带内且对齐 tick 边界。
+  /// @return 对应的网格位置。
   constexpr Tick ToTick(common::Price price) const noexcept {
-    const common::Price offset = price - base_price;
-    if (offset < 0 || offset % tick_size != 0) {
-      return kInvalidTick;
-    }
-    const common::Price tick = offset / tick_size;
-    return (tick < kTickCount) ? static_cast<Tick>(tick) : kInvalidTick;
+    return static_cast<Tick>((price - base_price) / tick_size);
   }
 
   /// ToTick 的逆映射。
@@ -178,8 +174,8 @@ class PriceLevels final {
 
   /// 寻址价格带内的一个价位，无论其是否为空。
   ///
-  /// @param tick 网格位置；调用方需先通过 PriceBand::ToTick 把价格
-  ///             映射为 tick 并确认其有效。
+  /// @param tick 网格位置，必须在 [0, kTickCount) 内；由 PriceBand::ToTick
+  ///             从已校验的价格映射而来。
   /// @return 该 tick 上的价位槽位；引用在本对象生命周期内始终有效。
   const FIFOLevel& LevelAt(Tick tick) const noexcept {
     return levels_[static_cast<std::size_t>(tick)];
@@ -289,13 +285,14 @@ class PriceLevels final {
 // 撮合消耗它的数量，只有剩余部分才转为挂单。将两者分开，正是挂单节点
 // 能保持在一个缓存行内的原因：taker 的字段只为一次请求服务，而节点的
 // 字段为整个挂单期间服务。
+// 限价在 Add() 入口转换为 tick；撮合只比较 tick，价格转换留给出站消息。
 // ---------------------------------------------------------------------------
 struct TakerOrder {
   common::ClientId client_id = common::ClientId_INVALID;
   common::OrderId client_order_id = common::OrderId_INVALID;
   common::OrderId market_order_id = common::OrderId_INVALID;
   common::Side side = common::Side::INVALID;
-  common::Price price = common::Price_INVALID;           // 限价
+  Tick limit_tick = kInvalidTick;                        // 限价对应的 tick
   common::Quantity quantity = common::Quantity_INVALID;  // 尚未成交的数量
 };
 
