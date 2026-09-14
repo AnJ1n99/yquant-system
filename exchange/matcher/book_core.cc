@@ -131,14 +131,13 @@ std::string BookCore::toString([[maybe_unused]] bool detailed,
 Quantity BookCore::Match(TakerOrder& taker) noexcept {
   auto& maker_levels = OppositeLevels(taker.side);
   const bool taker_buys = (taker.side == Side::BUY);
-  // 被成交一侧的方向在整个撮合过程中恒定：即进攻方的对手方向。
-  const Side maker_side = taker_buys ? Side::SELL : Side::BUY;
+  const Side maker_side = maker_levels.side();
 
   // 外层循环：价格层级，最优优先。内层循环：该层级的 FIFO。
   while (taker.quantity > 0) {
     // 最优 tick 由单侧订单簿即时维护，价位与价格都从它派生。
     const Tick maker_tick = maker_levels.BestTick();
-    if (maker_tick == kInvalidTick) {
+    if (UNLIKELY(maker_tick == kInvalidTick)) {
       break;
     }
     const auto& level = maker_levels.LevelAt(maker_tick);
