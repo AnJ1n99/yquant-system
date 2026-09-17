@@ -39,7 +39,7 @@ class TCPServer {
 
   // Collection of all sockets, sockets for incoming data, sockets for outgoing
   // data and dead connections.
-  std::vector<TCPSocket*> recv_sockets_, send_sockets_;
+  std::vector<TCPSocket*> recv_sockets_;
 
   // todo: use 函数指针
   std::function<void(TCPSocket* s, Nanos nx_time)> recv_callback_ = nullptr;
