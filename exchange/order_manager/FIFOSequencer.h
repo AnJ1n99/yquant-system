@@ -45,8 +45,9 @@ class FIFOSequencer {
     logger_->log("%:% %() % Processing % requests.\n", __FILE__, __LINE__,
                  __FUNCTION__, time_str_, pendingSize);
 
-    std::sort(pendingClientRequests.begin(),
-              pendingClientRequests.begin() + pendingSize);
+    std::ranges::sort(pendingClientRequests.begin(),
+                      pendingClientRequests.begin() + pendingSize, {},
+                      &TimestampedClientRequest::receive_time);
 
     for (size_t i = 0; i < pendingSize; ++i) {
       const auto& client_request = pendingClientRequests.at(i);
@@ -80,10 +81,6 @@ class FIFOSequencer {
   struct TimestampedClientRequest {
     common::Nanos receive_time = 0;
     MatchingEngineClientRequest request;
-
-    bool operator<(const TimestampedClientRequest& rhs) const noexcept {
-      return receive_time < rhs.receive_time;
-    }
   };
 
   std::array<TimestampedClientRequest, kMaxPendingRequests>
