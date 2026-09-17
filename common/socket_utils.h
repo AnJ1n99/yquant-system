@@ -42,21 +42,23 @@ constexpr int MaxTCPServerBacklog = 1024;
 
 // convert interface name "eth0" to ip "123.123.123.123"
 inline auto getIfaceIP(const std::string& iface) -> std::string {
-  char buf[NI_MAXHOST] = {'\0'};
   ifaddrs* ifaddr = nullptr;
-
+  std::string ip {};
   if (getifaddrs(&ifaddr) != -1) {
     for (ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
       if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET &&
           iface == ifa->ifa_name) {
-        getnameinfo(ifa->ifa_addr, sizeof(sockaddr), buf, NI_MAXHOST, nullptr,
-                    0, NI_NUMERICHOST);
-        break;
+        char buf[INET_ADDRSTRLEN] = {'\0'};
+        const auto* sin = reinterpret_cast<const sockaddr_in*>(ifa->ifa_addr);
+        if (inet_ntop(AF_INET, &sin->sin_addr, buf, sizeof(buf)) != nullptr) {
+          ip = buf;
+        }
+        break;  // 仅取该接口的第一个 IPv4 地址
       }
     }
     freeifaddrs(ifaddr);
   }
-  return buf;
+  return ip;
 }
 
 // Sockets will not block on read,
