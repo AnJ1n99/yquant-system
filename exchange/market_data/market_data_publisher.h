@@ -1,14 +1,7 @@
 #pragma once
 
-#include <atomic>
-#include <string>
-#include <thread>
-
-#include "../common/logging.h"
-#include "../common/ringBuffer.h"
-#include "../common/types.h"
-#include "../matcher/book_core.h"
-#include "../order_manager/client_response.h"
+#include "market_update.h"
+#include "snapshot_synthesizer.h"
 
 namespace exchange {
 
@@ -17,24 +10,39 @@ struct MatchingEngineMarketUpdate;
 
 class MarketDataPublisher {
  public:
-  MarketDataPublisher(MatchingEngineMarketUpdateLFQueue* marketUpdates,
-                      const std::string& multicastAddr, int port);
+   MarketDataPublisher(MatchingEngineMarketUpdateLFQueue *market_updates, const std::string &iface,
+                           const std::string &snapshot_ip, int snapshot_port,
+                           const std::string &incremental_ip, int incremental_port);
   ~MarketDataPublisher();
 
   void start();
   void stop();
 
- private:
   void run();
 
-  [[maybe_unused]] MatchingEngineMarketUpdateLFQueue* marketUpdates_ = nullptr;
-  [[maybe_unused]] std::string multicastAddr_;
-  [[maybe_unused]] int port_ = 0;
-  std::atomic<bool> run_{false};
-  std::thread publisherThread_;
+  MarketDataPublisher() = delete;
+  
+  MarketDataPublisher(const MarketDataPublisher &) = delete;
+  
+  MarketDataPublisher(const MarketDataPublisher &&) = delete;
+  
+  MarketDataPublisher &operator=(const MarketDataPublisher &) = delete;
+  
+  MarketDataPublisher &operator=(const MarketDataPublisher &&) = delete;
+
+ private:
+
+  std::size_t next_inc_seq_num_ = 1;
+
+  MatchingEngineMarketUpdateLFQueue *outgoing_md_updates_ = nullptr;
+  MarketDataPublisherMarketUpdateLFQueue snapshot_md_updates_;
+  
+  volatile bool run_ = false;
+
   common::Logger logger_;
-
   std::string time_str_;
-};
 
+  common::McastSocket incremental_socket_;
+  SnapshotSynthesizer *snapshot_synthesizer_ = nullptr;
+};
 }  // namespace exchange
