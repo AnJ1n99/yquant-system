@@ -33,31 +33,35 @@ inline std::string clientResponseTypeToString(ClientResponseType type) {
 }
 
 #pragma pack(push, 1)
+// CANCEL_REJECTED 只携带类型及客户端、标的、客户端订单号。
+// 其他字段在该消息中不适用，聚合初始化时清零；接受和撤单回报的本次成交量为 0。
 struct MatchingEngineClientResponse {
-  ClientResponseType type_ = ClientResponseType::INVALID;
-  common::ClientId client_id_ = common::ClientId_INVALID;
-  common::SymbolId symbol_id_ = common::SymbolId_INVALID;
-  common::OrderId client_order_id_ = common::OrderId_INVALID;
-  common::OrderId market_order_id_ = common::OrderId_INVALID;
-  common::Side side_ = common::Side::INVALID;
-  common::Price price_ = common::Price_INVALID;
-  common::Quantity executed_quantity_ = common::Quantity_INVALID;
-  common::Quantity remaining_quantity_ = common::Quantity_INVALID;
+  ClientResponseType type_;
+  common::ClientId client_id_;
+  common::SymbolId symbol_id_;
+  common::OrderId client_order_id_;
+  common::OrderId market_order_id_;
+  common::Side side_;
+  common::Price price_;
+  common::Quantity executed_quantity_;
+  common::Quantity remaining_quantity_;
 
   auto toString() const {
     std::ostringstream oss;
     oss << "MatchingEngineClientResponse"
         << " ["
         << "type:" << clientResponseTypeToString(type_)
-        << " client:" << common::ClientIdToString(client_id_)
-        << " symbol:" << common::SymbolIdToString(symbol_id_)
-        << " coid:" << common::OrderIdToString(client_order_id_)
-        << " moid:" << common::OrderIdToString(market_order_id_)
-        << " side:" << common::SideToString(side_)
-        << " executed_quantity:" << common::QuantityToString(executed_quantity_)
-        << " remaining_quantity:"
-        << common::QuantityToString(remaining_quantity_)
-        << " price:" << common::PriceToString(price_) << "]";
+        << " client:" << client_id_
+        << " symbol:" << symbol_id_
+        << " coid:" << client_order_id_;
+    if (type_ != ClientResponseType::CANCEL_REJECTED) {
+      oss << " moid:" << market_order_id_
+          << " side:" << static_cast<unsigned>(side_)
+          << " executed_quantity:" << executed_quantity_
+          << " remaining_quantity:" << remaining_quantity_
+          << " price:" << price_;
+    }
+    oss << "]";
     return oss.str();
   }
 };

@@ -39,27 +39,27 @@ inline std::string clientRequestTypeToString(ClientRequestType type) {
 // - 提高数据序列化/反序列化的性能
 // - 确保跨进程/网络传输的数据格式一致性
 struct MatchingEngineClientRequest {  // 实际的客户端请求
-  ClientRequestType type_ = ClientRequestType::INVAILD;
+  ClientRequestType type_;
 
-  // 初始化示例 - 表示一个未初始化的订单结构
-  common::ClientId clientId_ = common::ClientId_INVALID;  // 客户端
-  common::SymbolId symbolId_ = common::SymbolId_INVALID;  // 股票id
-  common::OrderId orderId_   = common::OrderId_INVALID;     // 订单
-  common::Side side_         = common::Side::INVALID;             // 买卖
-  common::Price price_       = common::Price_INVALID;           // 价格
-  common::Quantity quantity_ = common::Quantity_INVALID;  // 数量
+  // 订单字段由调用方提供，进入撮合前已保证有效。
+  common::ClientId clientId_;  // 客户端
+  common::SymbolId symbolId_;  // 股票id
+  common::OrderId orderId_  ;     // 订单
+  common::Side side_        ;             // 买卖
+  common::Price price_      ;           // 价格
+  common::Quantity quantity_;  // 数量
 
   auto toString() const {
     std::ostringstream oss;
     oss << "MatchingEngineClientRequest"
         << " ["
         << "type:"      << clientRequestTypeToString(type_)
-        << " client:"   << common::ClientIdToString(clientId_)
-        << " symbolId:" << common::SymbolIdToString(symbolId_)
-        << " oid:"      << common::OrderIdToString(orderId_)
-        << " side:"     << common::SideToString(side_)
-        << " quantity:" << common::QuantityToString(quantity_)
-        << " price:"    << common::PriceToString(price_) << "]";
+        << " client:"   << clientId_
+        << " symbolId:" << symbolId_
+        << " oid:"      << orderId_
+        << " side:"     << static_cast<unsigned>(side_)
+        << " quantity:" << quantity_
+        << " price:"    << price_ << "]";
     return oss.str();
   }
 };
