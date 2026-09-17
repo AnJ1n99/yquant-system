@@ -32,8 +32,7 @@ class OrderManager {
   void start();
   void stop();
 
-  auto
-  run() noexcept {  // 该函数在独立线程中持续运行，负责将来自交易系统的响应消息通过
+  auto run() noexcept {  // 该函数在独立线程中持续运行，负责将来自交易系统的响应消息通过
                     // TCP 发送给客户端，并保证消息顺序正确
     common::GetCurrentTimeStr(time_str_);
     logger.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, time_str_);
