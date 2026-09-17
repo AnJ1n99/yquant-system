@@ -15,3 +15,7 @@ target_link_libraries(fast_queue_test PRIVATE GTest::gtest Threads::Threads)
 # 撮合回归测试复用已有的 GoogleTest 依赖。
 add_executable(book_core_test BookCore.cc)
 target_link_libraries(book_core_test PRIVATE GTest::gtest_main libexchange common)
+
+# 订单号索引的单元测试。
+add_executable(order_index_test OrderIndex.cc)
+target_link_libraries(order_index_test PRIVATE GTest::gtest_main libexchange common)
