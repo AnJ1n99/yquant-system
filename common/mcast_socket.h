@@ -16,7 +16,7 @@ constexpr size_t McastBufferSize = 64 * 1024 * 1024;
 
 class McastSocket {
  public:
-  McastSocket(Logger& logger) : logger_(logger) {
+  explicit McastSocket(Logger& logger) : logger_(logger) {
     outbound_data_.resize(McastBufferSize);
     inbound_data_.resize(McastBufferSize);
   }
@@ -37,14 +37,7 @@ class McastSocket {
 
   /// Copy data to send buffers - does not send them out yet.
   auto send(const void* data, size_t len) noexcept -> void;
-
  public:
-  auto setRecvCallback(std::function<void(McastSocket* s)> callback) -> void {
-    recv_callback_ = callback;
-  }
-  auto getSocketFd() const -> int { return socket_fd_; }
-
- private:
   int socket_fd_ = -1;
 
   /// Send and receive buffers, typically only one or the other is needed, not
