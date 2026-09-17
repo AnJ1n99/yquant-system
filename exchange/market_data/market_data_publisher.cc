@@ -19,7 +19,8 @@ MarketDataPublisher::MarketDataPublisher (
 MarketDataPublisher::~MarketDataPublisher() {
   stop();
 
-  std::literals::chrono_literals::this_thread::sleep_for(5s);
+  using namespace std::literals::chrono_literals;
+  std::this_thread::sleep_for(5s);
   
   delete snapshot_synthesizer_;
   snapshot_synthesizer_ = nullptr;
@@ -69,10 +70,10 @@ void MarketDataPublisher::run() {
         outgoing_md_updates_->UpdateReadIndex();
 
         // Forward this incremental market data update the snapshot synthesizer.
-        auto next_write = snapshot_md_updates_.getNextToWriteTo();
-        next_write->seq_num_ = next_inc_seq_num_;
-        next_write->me_market_update_ = *market_update;
-        snapshot_md_updates_.updateWriteIndex();
+        auto next_write = snapshot_md_updates_.GetNextToWriteTo();
+        next_write->seq_num = next_inc_seq_num_;
+        next_write->update = *market_update;
+        snapshot_md_updates_.UpdateWriteIndex();
 
         ++next_inc_seq_num_;
       }

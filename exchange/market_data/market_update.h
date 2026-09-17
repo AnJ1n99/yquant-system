@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <sstream>
 #include <string>
 
 #include "../../common/ringBuffer.h"
@@ -52,35 +53,37 @@ inline std::string marketUpdateTypeToString(MarketUpdateType type) {
 
 // 这些结构用于网络发送，所以对二进制结构进行紧凑打包
 #pragma pack(push, 1)
+// CANCEL 不携带数量和优先级，TRADE 不携带优先级；
+// 这些不适用的尾部字段在构造消息时由聚合初始化清零。
 struct MatchingEngineMarketUpdate {
-  MarketUpdateType type_ = MarketUpdateType::INVALID;
+  MarketUpdateType type_;
 
-  common::SymbolId symbolId_ = common::SymbolId_INVALID;
-  common::OrderId orderId_ = common::OrderId_INVALID;
-  common::Side side_ = common::Side::INVALID;
-  common::Price price_ = common::Price_INVALID;
-  common::Quantity quantity_ = common::Quantity_INVALID;
-  common::Priority priority_ = common::Priority_INVALID;  // 优先级
+  common::SymbolId symbolId_;
+  common::OrderId orderId_;
+  common::Side side_;
+  common::Price price_;
+  common::Quantity quantity_;
+  common::Priority priority_;  // 优先级
 
   auto toString() const {
     std::ostringstream oss;
     oss << "MatchingEngineMarketUpdate"
         << " ["
         << "type:" << marketUpdateTypeToString(type_)
-        << " symbol:" << common::SymbolIdToString(symbolId_)
-        << " orderId:" << common::OrderIdToString(orderId_)
-        << " side:" << common::SideToString(side_)
-        << " price:" << common::PriceToString(price_)
-        << " quantity:" << common::QuantityToString(quantity_)
-        << " priority: " << common::PriorityToString(priority_) << "]";
+        << " symbol:" << symbolId_
+        << " orderId:" << orderId_
+        << " side:" << static_cast<unsigned>(side_)
+        << " price:" << price_
+        << " quantity:" << quantity_
+        << " priority: " << priority_ << "]";
     return oss.str();
   }
 };
 
 // MarketDataPublisher 通过网络发布的市场更新结构
 struct MarketDataPublisherMarketUpdate {
-  ssize_t seq_num = 0;                // 序列号
-  MatchingEngineMarketUpdate update;  // 市场更新结构对象
+  ssize_t seq_num = 0;                // 序列号--> 检测行情缺口，放置UDP丢数据
+  MatchingEngineMarketUpdate update;  
 
   auto toString() const {
     std::ostringstream oss;
