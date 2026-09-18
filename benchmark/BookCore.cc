@@ -30,64 +30,31 @@ void ExpectMessages(common::LFQueue<T>& queue,
 }
 
 // ---------------------------------------------------------------------------
-// 用例的两个维度：价位存储的实现方式，以及用例自身关心的方向。
-//
-// 同一组断言必须对两种实现都成立——这是「两种实现可互换」的直接证据，
-// 因此用例体内不允许出现任何实现相关的分支。
+// 用例只保留一个方向维度：同一组断言必须对买卖两侧都成立，
+// 因此用例体内不允许出现方向相关的分支。
+// 不适用的消息字段一律为零——这是新协议约定，期望消息按全字段逐字节核对。
 // ---------------------------------------------------------------------------
 
-/// 价位存储的实现方式。
-enum class LevelImpl { CONTIG, SPARSE };
-
-/// @param impl 目标实现。
-/// @param side 单侧方向。
-/// @param band 价格带；稀疏实现不使用它。
-/// @return 对应的单侧价位存储。
-std::unique_ptr<exchange::IPriceLevels> MakeLevels(LevelImpl impl, Side side,
-                                                   const PriceBand& band) {
-  if (impl == LevelImpl::SPARSE) {
-    return std::make_unique<exchange::PriceLevelsSparse>(side);
-  }
-  return std::make_unique<exchange::PriceLevelsContig>(side, band);
+std::string SideParamName(const ::testing::TestParamInfo<Side>& info) {
+  return info.param == Side::BUY ? "Buy" : "Sell";
 }
 
-struct BookCoreParam {
-  LevelImpl impl;
-  Side side;
-};
+// 非零基价、非单位步长：价格与 tick 不再数值相等（1020 -> tick 4）。
+constexpr PriceBand kScaledPriceBand{.base_price = 1000, .tick_size = 5};
 
-std::string BookCoreParamName(
-    const ::testing::TestParamInfo<BookCoreParam>& info) {
-  return std::string(info.param.impl == LevelImpl::CONTIG ? "Contig"
-                                                          : "Sparse") +
-         (info.param.side == Side::BUY ? "Buy" : "Sell");
-}
-
-// 非零基价、非单位步长：价格与 tick 不再数值相等（1000 -> tick 200）。
-constexpr PriceBand kScaledPriceBand{.min_tick = 200,
-                                     .max_tick = 207,
-                                     .tick_size = 5};
-
-class BookCoreTest : public ::testing::TestWithParam<BookCoreParam> {
+class BookCoreTest : public ::testing::TestWithParam<Side> {
  protected:
   void SetUp() override { Build(exchange::kDefaultPriceBand); }
 
-  /// 用给定价格带重建订单簿；两侧价位的实现由用例参数决定。
+  /// 用给定价格带重建订单簿。
   ///
   /// @param band 新的价格带。
   void Build(const PriceBand& band) {
-    // 订单簿持有对两侧价位存储的引用，重建时必须先销毁引用者。
-    book_.reset();
-    bids_ = MakeLevels(GetParam().impl, Side::BUY, band);
-    asks_ = MakeLevels(GetParam().impl, Side::SELL, band);
-    book_ = std::make_unique<exchange::BookCore>(0, band, *bids_, *asks_,
-                                                 responses_, updates_);
+    book_ = std::make_unique<exchange::BookCore>(0, band, responses_, updates_);
   }
 
   exchange::ClientResponseLFQueue responses_{64};
   exchange::MatchingEngineMarketUpdateLFQueue updates_{64};
-  std::unique_ptr<exchange::IPriceLevels> bids_;
-  std::unique_ptr<exchange::IPriceLevels> asks_;
   std::unique_ptr<exchange::BookCore> book_;
 };
 
@@ -95,16 +62,16 @@ TEST_P(BookCoreTest, AddAndCancel) {
   book_->Add(1, 10, Side::BUY, 100, 7);
   book_->Cancel(1, 10);
 
-  ExpectMessages(responses_, {
-                                 {ClientResponseType::ACCEPTED, 1, 0, 10, 1,
-                                  Side::BUY, 100, 0, 7},
-                                 {ClientResponseType::CANCELED, 1, 0, 10, 1,
-                                  Side::BUY, 100, 0, 7},
-                             });
+  ExpectMessages(
+      responses_,
+      {
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, Side::BUY, 100, 0, 7},
+          {ClientResponseType::CANCELED, 1, 0, 10, 1, Side::BUY, 100, 0, 7},
+      });
   ExpectMessages(updates_,
                  {
                      {MarketUpdateType::ADD, 0, 1, Side::BUY, 100, 7, 1},
-                     {MarketUpdateType::CANCEL, 0, 1, Side::BUY, 100},
+                     {MarketUpdateType::CANCEL, 0, 1, Side::BUY, 100, 0, 0},
                  });
 }
 
@@ -112,14 +79,15 @@ TEST_P(BookCoreTest, UnknownCancelOnlyEmitsRejection) {
   book_->Cancel(1, 10);
 
   ExpectMessages(responses_, {
-                                 {ClientResponseType::CANCEL_REJECTED, 1, 0, 10},
+                                 {ClientResponseType::CANCEL_REJECTED, 1, 0, 10,
+                                  0, Side{}, 0, 0, 0},
                              });
   ExpectMessages(updates_, {});
 }
 
 TEST_P(BookCoreTest, PartialThenFullFill) {
   Build(kScaledPriceBand);
-  const Side taker_side = GetParam().side;
+  const Side taker_side = GetParam();
   const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
   const common::Price limit = taker_side == Side::BUY ? 1025 : 1015;
   book_->Add(1, 10, maker_side, 1020, 10);
@@ -129,30 +97,27 @@ TEST_P(BookCoreTest, PartialThenFullFill) {
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 1020,
-           0, 10},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit,
-           0, 4},
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 1020, 0, 10},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit, 0, 4},
           {ClientResponseType::FILLED, 2, 0, 20, 2, taker_side, 1020, 4, 0},
           {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 1020, 4, 6},
-          {ClientResponseType::ACCEPTED, 2, 0, 21, 3, taker_side, limit,
-           0, 6},
+          {ClientResponseType::ACCEPTED, 2, 0, 21, 3, taker_side, limit, 0, 6},
           {ClientResponseType::FILLED, 2, 0, 21, 3, taker_side, 1020, 6, 0},
           {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 1020, 6, 0},
       });
   ExpectMessages(updates_,
                  {
                      {MarketUpdateType::ADD, 0, 1, maker_side, 1020, 10, 1},
-                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 4},
+                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 4, 0},
                      {MarketUpdateType::MODIFY, 0, 1, maker_side, 1020, 6, 1},
-                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 6},
-                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 1020},
+                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 6, 0},
+                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 1020, 0, 0},
                  });
 }
 
 TEST_P(BookCoreTest, RemainderBecomesRestingOrder) {
   Build(kScaledPriceBand);
-  const Side taker_side = GetParam().side;
+  const Side taker_side = GetParam();
   const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
   const common::Price limit = taker_side == Side::BUY ? 1025 : 1015;
   book_->Add(1, 10, maker_side, 1020, 3);
@@ -162,27 +127,24 @@ TEST_P(BookCoreTest, RemainderBecomesRestingOrder) {
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 1020,
-           0, 3},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit,
-           0, 5},
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 1020, 0, 3},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit, 0, 5},
           {ClientResponseType::FILLED, 2, 0, 20, 2, taker_side, 1020, 3, 2},
           {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 1020, 3, 0},
-          {ClientResponseType::CANCELED, 2, 0, 20, 2, taker_side, limit,
-           0, 2},
+          {ClientResponseType::CANCELED, 2, 0, 20, 2, taker_side, limit, 0, 2},
       });
   ExpectMessages(updates_,
                  {
                      {MarketUpdateType::ADD, 0, 1, maker_side, 1020, 3, 1},
-                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 3},
-                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 1020},
+                     {MarketUpdateType::TRADE, 0, 1, maker_side, 1020, 3, 0},
+                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 1020, 0, 0},
                      {MarketUpdateType::ADD, 0, 2, taker_side, limit, 2, 1},
-                     {MarketUpdateType::CANCEL, 0, 2, taker_side, limit},
+                     {MarketUpdateType::CANCEL, 0, 2, taker_side, limit, 0, 0},
                  });
 }
 
 TEST_P(BookCoreTest, FillsFollowMakerFifoOrder) {
-  const Side taker_side = GetParam().side;
+  const Side taker_side = GetParam();
   const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
   book_->Add(1, 10, maker_side, 100, 3);
   book_->Add(1, 11, maker_side, 100, 4);
@@ -191,31 +153,27 @@ TEST_P(BookCoreTest, FillsFollowMakerFifoOrder) {
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100,
-           0, 3},
-          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 100,
-           0, 4},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 3, taker_side, 100,
-           0, 6},
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100, 0, 3},
+          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 100, 0, 4},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 3, taker_side, 100, 0, 6},
           {ClientResponseType::FILLED, 2, 0, 20, 3, taker_side, 100, 3, 3},
           {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, 100, 3, 0},
           {ClientResponseType::FILLED, 2, 0, 20, 3, taker_side, 100, 3, 0},
           {ClientResponseType::FILLED, 1, 0, 11, 2, maker_side, 100, 3, 1},
       });
-  ExpectMessages(
-      updates_,
-      {
-          {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
-          {MarketUpdateType::ADD, 0, 2, maker_side, 100, 4, 2},
-          {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 3},
-          {MarketUpdateType::CANCEL, 0, 1, maker_side, 100},
-          {MarketUpdateType::TRADE, 0, 2, maker_side, 100, 3},
-          {MarketUpdateType::MODIFY, 0, 2, maker_side, 100, 1, 2},
-      });
+  ExpectMessages(updates_,
+                 {
+                     {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
+                     {MarketUpdateType::ADD, 0, 2, maker_side, 100, 4, 2},
+                     {MarketUpdateType::TRADE, 0, 1, maker_side, 100, 3, 0},
+                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 100, 0, 0},
+                     {MarketUpdateType::TRADE, 0, 2, maker_side, 100, 3, 0},
+                     {MarketUpdateType::MODIFY, 0, 2, maker_side, 100, 1, 2},
+                 });
 }
 
 TEST_P(BookCoreTest, EmptyBookRestsOrder) {
-  const Side side = GetParam().side;
+  const Side side = GetParam();
   book_->Add(1, 10, side, 100, 7);
 
   ExpectMessages(responses_, {{ClientResponseType::ACCEPTED, 1, 0, 10, 1, side,
@@ -224,32 +182,31 @@ TEST_P(BookCoreTest, EmptyBookRestsOrder) {
 }
 
 TEST_P(BookCoreTest, NonCrossingOrderLeavesMakerUntouched) {
-  const Side taker_side = GetParam().side;
+  const Side taker_side = GetParam();
   const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
   const common::Price limit = taker_side == Side::BUY ? 99 : 101;
   book_->Add(1, 10, maker_side, 100, 3);
   book_->Add(2, 20, taker_side, limit, 5);
   book_->Cancel(1, 10);
 
-  ExpectMessages(responses_, {
-                                 {ClientResponseType::ACCEPTED, 1, 0, 10, 1,
-                                  maker_side, 100, 0, 3},
-                                 {ClientResponseType::ACCEPTED, 2, 0, 20, 2,
-                                  taker_side, limit, 0, 5},
-                                 {ClientResponseType::CANCELED, 1, 0, 10, 1,
-                                  maker_side, 100, 0, 3},
-                             });
+  ExpectMessages(
+      responses_,
+      {
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, 100, 0, 3},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 2, taker_side, limit, 0, 5},
+          {ClientResponseType::CANCELED, 1, 0, 10, 1, maker_side, 100, 0, 3},
+      });
   ExpectMessages(updates_,
                  {
                      {MarketUpdateType::ADD, 0, 1, maker_side, 100, 3, 1},
                      {MarketUpdateType::ADD, 0, 2, taker_side, limit, 5, 1},
-                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 100},
+                     {MarketUpdateType::CANCEL, 0, 1, maker_side, 100, 0, 0},
                  });
 }
 
 TEST_P(BookCoreTest, MultipleLevelsFollowPricePriorityAndStopAtLimit) {
   Build(kScaledPriceBand);
-  const Side taker_side = GetParam().side;
+  const Side taker_side = GetParam();
   const Side maker_side = taker_side == Side::BUY ? Side::SELL : Side::BUY;
   const common::Price limit = taker_side == Side::BUY ? 1025 : 1015;
   const common::Price outside = taker_side == Side::BUY ? 1035 : 1005;
@@ -263,42 +220,35 @@ TEST_P(BookCoreTest, MultipleLevelsFollowPricePriorityAndStopAtLimit) {
   ExpectMessages(
       responses_,
       {
-          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, limit,
-           0, 3},
-          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 1020,
-           0, 2},
-          {ClientResponseType::ACCEPTED, 1, 0, 12, 3, maker_side, outside,
-           0, 4},
-          {ClientResponseType::ACCEPTED, 2, 0, 20, 4, taker_side, limit,
-           0, 8},
+          {ClientResponseType::ACCEPTED, 1, 0, 10, 1, maker_side, limit, 0, 3},
+          {ClientResponseType::ACCEPTED, 1, 0, 11, 2, maker_side, 1020, 0, 2},
+          {ClientResponseType::ACCEPTED, 1, 0, 12, 3, maker_side, outside, 0,
+           4},
+          {ClientResponseType::ACCEPTED, 2, 0, 20, 4, taker_side, limit, 0, 8},
           {ClientResponseType::FILLED, 2, 0, 20, 4, taker_side, 1020, 2, 6},
           {ClientResponseType::FILLED, 1, 0, 11, 2, maker_side, 1020, 2, 0},
           {ClientResponseType::FILLED, 2, 0, 20, 4, taker_side, limit, 3, 3},
           {ClientResponseType::FILLED, 1, 0, 10, 1, maker_side, limit, 3, 0},
-          {ClientResponseType::CANCELED, 1, 0, 12, 3, maker_side, outside,
-           0, 4},
+          {ClientResponseType::CANCELED, 1, 0, 12, 3, maker_side, outside, 0,
+           4},
       });
-  ExpectMessages(updates_,
-                 {
-                     {MarketUpdateType::ADD, 0, 1, maker_side, limit, 3, 1},
-                     {MarketUpdateType::ADD, 0, 2, maker_side, 1020, 2, 1},
-                     {MarketUpdateType::ADD, 0, 3, maker_side, outside, 4, 1},
-                     {MarketUpdateType::TRADE, 0, 2, maker_side, 1020, 2},
-                     {MarketUpdateType::CANCEL, 0, 2, maker_side, 1020},
-                     {MarketUpdateType::TRADE, 0, 1, maker_side, limit, 3},
-                     {MarketUpdateType::CANCEL, 0, 1, maker_side, limit},
-                     {MarketUpdateType::ADD, 0, 4, taker_side, limit, 3, 1},
-                     {MarketUpdateType::CANCEL, 0, 3, maker_side, outside},
-                 });
+  ExpectMessages(
+      updates_, {
+                    {MarketUpdateType::ADD, 0, 1, maker_side, limit, 3, 1},
+                    {MarketUpdateType::ADD, 0, 2, maker_side, 1020, 2, 1},
+                    {MarketUpdateType::ADD, 0, 3, maker_side, outside, 4, 1},
+                    {MarketUpdateType::TRADE, 0, 2, maker_side, 1020, 2, 0},
+                    {MarketUpdateType::CANCEL, 0, 2, maker_side, 1020, 0, 0},
+                    {MarketUpdateType::TRADE, 0, 1, maker_side, limit, 3, 0},
+                    {MarketUpdateType::CANCEL, 0, 1, maker_side, limit, 0, 0},
+                    {MarketUpdateType::ADD, 0, 4, taker_side, limit, 3, 1},
+                    {MarketUpdateType::CANCEL, 0, 3, maker_side, outside, 0, 0},
+                });
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    BothImplsAndSides, BookCoreTest,
-    ::testing::Values(BookCoreParam{LevelImpl::CONTIG, Side::BUY},
-                      BookCoreParam{LevelImpl::CONTIG, Side::SELL},
-                      BookCoreParam{LevelImpl::SPARSE, Side::BUY},
-                      BookCoreParam{LevelImpl::SPARSE, Side::SELL}),
-    BookCoreParamName);
+INSTANTIATE_TEST_SUITE_P(BothSides, BookCoreTest,
+                         ::testing::Values(Side::BUY, Side::SELL),
+                         SideParamName);
 
 TEST(MatchingEngineOutputTest, SymbolsShareOutputQueuesWithoutCrossMatching) {
   exchange::ClientRequestLFQueue requests{64};
@@ -308,29 +258,27 @@ TEST(MatchingEngineOutputTest, SymbolsShareOutputQueuesWithoutCrossMatching) {
   const exchange::MatchingEngineClientRequest inputs[] = {
       {exchange::ClientRequestType::NEW, 1, 1, 10, Side::BUY, 100, 3},
       {exchange::ClientRequestType::NEW, 1, 2, 10, Side::SELL, 100, 4},
-      {exchange::ClientRequestType::CANCELED, 1, 1, 10},
-      {exchange::ClientRequestType::CANCELED, 1, 2, 10},
+      {exchange::ClientRequestType::CANCELED, 1, 1, 10, Side{}, 0, 0},
+      {exchange::ClientRequestType::CANCELED, 1, 2, 10, Side{}, 0, 0},
   };
   for (const auto& input : inputs) {
     engine.ProcessClientRequest(&input);
   }
 
-  ExpectMessages(responses, {
-                                {ClientResponseType::ACCEPTED, 1, 1, 10, 1,
-                                 Side::BUY, 100, 0, 3},
-                                {ClientResponseType::ACCEPTED, 1, 2, 10, 1,
-                                 Side::SELL, 100, 0, 4},
-                                {ClientResponseType::CANCELED, 1, 1, 10, 1,
-                                 Side::BUY, 100, 0, 3},
-                                {ClientResponseType::CANCELED, 1, 2, 10, 1,
-                                 Side::SELL, 100, 0, 4},
-                            });
+  ExpectMessages(
+      responses,
+      {
+          {ClientResponseType::ACCEPTED, 1, 1, 10, 1, Side::BUY, 100, 0, 3},
+          {ClientResponseType::ACCEPTED, 1, 2, 10, 1, Side::SELL, 100, 0, 4},
+          {ClientResponseType::CANCELED, 1, 1, 10, 1, Side::BUY, 100, 0, 3},
+          {ClientResponseType::CANCELED, 1, 2, 10, 1, Side::SELL, 100, 0, 4},
+      });
   ExpectMessages(updates,
                  {
                      {MarketUpdateType::ADD, 1, 1, Side::BUY, 100, 3, 1},
                      {MarketUpdateType::ADD, 2, 1, Side::SELL, 100, 4, 1},
-                     {MarketUpdateType::CANCEL, 1, 1, Side::BUY, 100},
-                     {MarketUpdateType::CANCEL, 2, 1, Side::SELL, 100},
+                     {MarketUpdateType::CANCEL, 1, 1, Side::BUY, 100, 0, 0},
+                     {MarketUpdateType::CANCEL, 2, 1, Side::SELL, 100, 0, 0},
                  });
 }
 
