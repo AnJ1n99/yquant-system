@@ -101,8 +101,10 @@ void SnapshotSynthesizer::AddtoSnapshot(const MarketDataPublisherMarketUpdate* m
     case MarketUpdateType::INVALID:
       break;
     }
-  
-    ASSERT(market_update->seq_num == last_inc_seq_num_ + 1, "Expected incremental seq_nums to increase.");
+
+    ASSERT(
+        market_update->seq_num == static_cast<ssize_t>(last_inc_seq_num_) + 1,
+        "Expected incremental seq_nums to increase.");
     last_inc_seq_num_ = market_update->seq_num;
 }
 
@@ -111,7 +113,15 @@ void SnapshotSynthesizer::PublishSnapshot() {
   ssize_t snapshot_size = 0;
 
   // The snapshot cycle starts with a SNAPSHOT_START message and orderId_ contains the last sequence number from the incremental market data stream used to build this snapshot.
-  const MarketDataPublisherMarketUpdate start_market_update{snapshot_size++, {MarketUpdateType::SNAPSHOT_START, 0, last_inc_seq_num_}};
+  const MarketDataPublisherMarketUpdate start_market_update{
+      snapshot_size++,
+      {.type_ = MarketUpdateType::SNAPSHOT_START,
+       .symbolId_ = 0,
+       .orderId_ = last_inc_seq_num_,
+       .side_ = common::Side{},
+       .price_ = 0,
+       .quantity_ = 0,
+       .priority_ = 0}};
   common::GetCurrentTimeStr(time_str_);
   logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, time_str_, start_market_update.toString().c_str());
   snapshot_socket_.send(&start_market_update, sizeof(MarketDataPublisherMarketUpdate));
@@ -143,7 +153,15 @@ void SnapshotSynthesizer::PublishSnapshot() {
   }
 
   // The snapshot cycle ends with a SNAPSHOT_END message and orderId_ contains the last sequence number from the incremental market data stream used to build this snapshot.
-  const MarketDataPublisherMarketUpdate end_market_update{snapshot_size++, {MarketUpdateType::SNAPSHOT_END, 0, last_inc_seq_num_}};
+  const MarketDataPublisherMarketUpdate end_market_update{
+      snapshot_size++,
+      {.type_ = MarketUpdateType::SNAPSHOT_END,
+       .symbolId_ = 0,
+       .orderId_ = last_inc_seq_num_,
+       .side_ = common::Side{},
+       .price_ = 0,
+       .quantity_ = 0,
+       .priority_ = 0}};
   common::GetCurrentTimeStr(time_str_);
   logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, time_str_, end_market_update.toString().c_str());
   snapshot_socket_.send(&end_market_update, sizeof(MarketDataPublisherMarketUpdate));

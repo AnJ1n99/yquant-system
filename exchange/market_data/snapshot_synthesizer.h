@@ -49,14 +49,14 @@ class SnapshotSynthesizer {
 
    volatile bool run_ = false;
 
+   common::Logger logger_;
    common::McastSocket snapshot_socket_;
 
    /// Hash map from SymbolId -> Full limit order book snapshot containing information for every live order.
    std::array<std::array<MatchingEngineMarketUpdate*, common::kMaxOrderIds>, common::kMaxSymbols> symbol_orders_;
    size_t last_inc_seq_num_ = 0;
    common::Nanos last_snapshot_time_ = 0;
-  
-  common::Logger logger_;
+
   std::string time_str_;
 
   // Memory pool to manage MEMarketUpdate messages for the orders in the snapshot limit order books.

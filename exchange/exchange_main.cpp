@@ -31,9 +31,13 @@
 // 先用 lo 做本机联调，联通外部客户端时再换成 ens17。
 constexpr const char* kOrderManagerIface = "lo";
 constexpr int kOrderManagerPort = 12345;
-// MarketDataPublisher 的地址目前仅由构造函数保存，start() 尚未真正发布。
+// MarketDataPublisher 的组播接口与两组流地址：增量流沿用既有地址，快照流
+// 使用相邻组播组与端口；与 OrderManager 一样先用 lo 做本机联调。
+constexpr const char* kMarketDataIface = "lo";
 constexpr const char* kMarketDataMcastAddr = "239.0.0.1";
 constexpr int kMarketDataMcastPort = 12346;
+constexpr const char* kSnapshotMcastAddr = "239.0.0.2";
+constexpr int kSnapshotMcastPort = 12347;
 
 // 主要组件，设为全局变量以便信号处理器访问
 common::Logger* logger = nullptr;
@@ -93,7 +97,8 @@ int main() {
   logger->log("%:% %() % Starting MarketDataPublisher..\n", __FILE__, __LINE__,
               __FUNCTION__, time_str_);
   market_data_publisher = new exchange::MarketDataPublisher(
-      &market_updates, kMarketDataMcastAddr, kMarketDataMcastPort);
+      &market_updates, kMarketDataIface, kSnapshotMcastAddr, kSnapshotMcastPort,
+      kMarketDataMcastAddr, kMarketDataMcastPort);
 
   // start market data publisher
   market_data_publisher->start();
