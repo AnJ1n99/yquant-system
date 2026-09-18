@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #include "../../common/mem_pool.h"
@@ -67,10 +68,12 @@ struct PriceBand {
   /// 仅在订单簿构建时检查一次，绝不在请求路径上调用。
   ///
   /// @return tick_size 为正、base_price 非负、且网格顶端不越过
-  ///         common::Price_INVALID 时为 true。
+  ///         common::Price 可表示的最大值时为 true。
   constexpr bool IsValid() const noexcept {
+    constexpr common::Price kPriceMax =
+        std::numeric_limits<common::Price>::max();
     return tick_size > 0 && base_price >= 0 &&
-           (common::Price_INVALID - base_price) / tick_size > kTickCount;
+           (kPriceMax - base_price) / tick_size > kTickCount;
   }
 };
 
@@ -103,11 +106,11 @@ struct alignas(common::kCacheLineBytes) OrderNode {
   // 该节点所在的价位；节点离开订单簿后为 null。
   FIFOLevel* level = nullptr;
 
-  common::OrderId market_order_id = common::OrderId_INVALID;
-  common::OrderId client_order_id = common::OrderId_INVALID;
-  common::Priority priority = common::Priority_INVALID;  // 价位内的排序
-  common::Quantity remaining_quantity = common::Quantity_INVALID;
-  common::ClientId client_id = common::ClientId_INVALID;
+  common::OrderId market_order_id;
+  common::OrderId client_order_id;
+  common::Priority priority;  // 价位内的排序
+  common::Quantity remaining_quantity;
+  common::ClientId client_id;
 };
 
 static_assert(sizeof(OrderNode) == common::kCacheLineBytes,
@@ -288,12 +291,12 @@ class PriceLevels final {
 // 限价在 Add() 入口转换为 tick；撮合只比较 tick，价格转换留给出站消息。
 // ---------------------------------------------------------------------------
 struct TakerOrder {
-  common::ClientId client_id = common::ClientId_INVALID;
-  common::OrderId client_order_id = common::OrderId_INVALID;
-  common::OrderId market_order_id = common::OrderId_INVALID;
-  common::Side side = common::Side::INVALID;
-  Tick limit_tick = kInvalidTick;                        // 限价对应的 tick
-  common::Quantity quantity = common::Quantity_INVALID;  // 尚未成交的数量
+  common::ClientId client_id;
+  common::OrderId client_order_id;
+  common::OrderId market_order_id;
+  common::Side side;
+  Tick limit_tick = kInvalidTick;  // 限价对应的 tick
+  common::Quantity quantity;       // 尚未成交的数量
 };
 
 // ---------------------------------------------------------------------------

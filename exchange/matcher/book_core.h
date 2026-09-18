@@ -53,7 +53,7 @@ class BookCore final {
   /// @param client_order_id 客户端侧订单号，必须小于 common::kMaxOrderIds。
   /// @param side 方向，BUY 或 SELL。
   /// @param price 限价，必须落在价格带内且对齐 tick 边界。
-  /// @param quantity 委托数量，必须为正且不为 common::Quantity_INVALID。
+  /// @param quantity 委托数量，必须为正。
   void Add(common::ClientId client_id, common::OrderId client_order_id,
            common::Side side, common::Price price,
            common::Quantity quantity) noexcept;

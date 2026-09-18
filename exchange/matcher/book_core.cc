@@ -8,12 +8,8 @@ namespace exchange {
 
 using common::ClientId;
 using common::OrderId;
-using common::OrderId_INVALID;
 using common::Price;
-using common::Price_INVALID;
-using common::Priority_INVALID;
 using common::Quantity;
-using common::Quantity_INVALID;
 using common::Side;
 using common::SymbolId;
 
@@ -52,7 +48,7 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
                       market_order_id,
                       side,
                       price,
-                      Quantity_INVALID,
+                      0,
                       quantity};
   SendClientResponse();
 
@@ -84,15 +80,15 @@ void BookCore::Add(ClientId client_id, OrderId client_order_id, Side side,
 void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
   auto* order = FindOrder(client_id, client_order_id);
   if (UNLIKELY(order == nullptr)) {
-    client_response_ = {ClientResponseType::CANCEL_REJECTED,
-                        client_id,
-                        symbol_id_,
-                        client_order_id,
-                        OrderId_INVALID,
-                        Side::INVALID,
-                        Price_INVALID,
-                        Quantity_INVALID,
-                        Quantity_INVALID};
+    client_response_ = {.type_ = ClientResponseType::CANCEL_REJECTED,
+                        .client_id_ = client_id,
+                        .symbol_id_ = symbol_id_,
+                        .client_order_id_ = client_order_id,
+                        .market_order_id_ = 0,
+                        .side_ = Side{},
+                        .price_ = 0,
+                        .executed_quantity_ = 0,
+                        .remaining_quantity_ = 0};
     SendClientResponse();
     return;
   }
@@ -105,17 +101,17 @@ void BookCore::Cancel(ClientId client_id, OrderId client_order_id) noexcept {
 
   client_response_ = {
       ClientResponseType::CANCELED, client_id, symbol_id_, client_order_id,
-      order->market_order_id,       side,      price,      Quantity_INVALID,
+      order->market_order_id,       side,      price,      0,
       order->remaining_quantity};
   SendClientResponse();
 
-  market_update_ = {MarketUpdateType::CANCEL,
-                    symbol_id_,
-                    order->market_order_id,
-                    side,
-                    price,
-                    Quantity_INVALID,
-                    Priority_INVALID};
+  market_update_ = {.type_ = MarketUpdateType::CANCEL,
+                    .symbolId_ = symbol_id_,
+                    .orderId_ = order->market_order_id,
+                    .side_ = side,
+                    .price_ = price,
+                    .quantity_ = 0,
+                    .priority_ = 0};
   SendMarketUpdate();
 
   UnindexOrder(client_id, client_order_id);
@@ -185,17 +181,23 @@ Quantity BookCore::Match(TakerOrder& taker) noexcept {
                           maker->remaining_quantity};
       SendClientResponse();
 
-      market_update_ = {MarketUpdateType::TRADE, symbol_id_,
-                        maker->market_order_id,  maker_side,
-                        execution_price,         executed_quantity,
-                        Priority_INVALID};
+      market_update_ = {.type_ = MarketUpdateType::TRADE,
+                        .symbolId_ = symbol_id_,
+                        .orderId_ = maker->market_order_id,
+                        .side_ = maker_side,
+                        .price_ = execution_price,
+                        .quantity_ = executed_quantity,
+                        .priority_ = 0};
       SendMarketUpdate();
 
       if (maker->remaining_quantity == 0) {
-        market_update_ = {MarketUpdateType::CANCEL, symbol_id_,
-                          maker->market_order_id,   maker_side,
-                          execution_price,          Quantity_INVALID,
-                          Priority_INVALID};
+        market_update_ = {.type_ = MarketUpdateType::CANCEL,
+                          .symbolId_ = symbol_id_,
+                          .orderId_ = maker->market_order_id,
+                          .side_ = maker_side,
+                          .price_ = execution_price,
+                          .quantity_ = 0,
+                          .priority_ = 0};
         SendMarketUpdate();
 
         UnindexOrder(maker->client_id, maker->client_order_id);
@@ -219,7 +221,7 @@ OrderNode* BookCore::FindOrder(ClientId client_id,
   return (table != nullptr) ? (*table)[client_order_id] : nullptr;
 }
 
-  // TODO: 这里可能会有尾延迟，我们稍后来优化。
+// TODO: 这里可能会有尾延迟，我们稍后来优化。
 void BookCore::IndexOrder(ClientId client_id, OrderId client_order_id,
                           OrderNode* order) noexcept {
   auto*& table = orders_[client_id];

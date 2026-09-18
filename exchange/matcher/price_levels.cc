@@ -14,13 +14,11 @@ auto OrderNode::toString() const -> std::string {
   std::ostringstream oss;
   oss << "OrderNode"
       << " ["
-      << " clientId:" << common::ClientIdToString(client_id)
-      << " clientOId:" << common::OrderIdToString(client_order_id)
-      << " marketOId:" << common::OrderIdToString(market_order_id)
-      << " remaining_quantity:" << common::QuantityToString(remaining_quantity)
-      << " priority:" << common::PriorityToString(priority)
-      << " inBook:" << (level != nullptr ? "yes" : "no")
-      << "]";
+      << " clientId:" << client_id << " clientOId:" << client_order_id
+      << " marketOId:" << market_order_id
+      << " remaining_quantity:" << remaining_quantity
+      << " priority:" << priority
+      << " inBook:" << (level != nullptr ? "yes" : "no") << "]";
   return oss.str();
 }
 
@@ -29,7 +27,7 @@ auto FIFOLevel::toString() const -> std::string {
   oss << "FIFOLevel"
       << " ["
       << " total_quantity:" << total_quantity
-      << " next_priority:" << common::PriorityToString(next_priority)
+      << " next_priority:" << next_priority
       << " firstOrder:" << (first_order != nullptr ? "exists" : "nullptr")
       << "]";
   return oss.str();
