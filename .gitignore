@@ -38,3 +38,4 @@ main.cpp
 
 AGENTS.md
 .devin/
+DEBUG_tcp_server_accept_crash.md
