@@ -7,17 +7,18 @@
 #include "market_order.h"
 #include "exchange/market_data/market_update.h"
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   class TradeEngine;
 
   class MarketOrderBook final {
   public:
-    MarketOrderBook(TickerId ticker_id, Logger *logger);
+    MarketOrderBook(SymbolId ticker_id, Logger *logger);
 
     ~MarketOrderBook();
 
     /// Process market data update and update the limit order book.
-    auto onMarketUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void;
+    auto onMarketUpdate(const exchange::MatchingEngineMarketUpdate *market_update) noexcept -> void;
 
     auto setTradeEngine(TradeEngine *trade_engine) {
       trade_engine_ = trade_engine;
@@ -33,8 +34,8 @@ namespace Trading {
             bbo_.bid_qty_ += order->qty_;
         }
         else {
-          bbo_.bid_price_ = Price_INVALID;
-          bbo_.bid_qty_ = Qty_INVALID;
+          bbo_.bid_price_ = 0;
+          bbo_.bid_qty_ = 0;
         }
       }
 
@@ -46,8 +47,8 @@ namespace Trading {
             bbo_.ask_qty_ += order->qty_;
         }
         else {
-          bbo_.ask_price_ = Price_INVALID;
-          bbo_.ask_qty_ = Qty_INVALID;
+          bbo_.ask_price_ = 0;
+          bbo_.ask_qty_ = 0;
         }
       }
     }
@@ -70,13 +71,13 @@ namespace Trading {
     MarketOrderBook &operator=(const MarketOrderBook &&) = delete;
 
   private:
-    const TickerId ticker_id_;
+    const SymbolId ticker_id_;
 
     /// Parent trade engine that owns this limit order book, used to send notifications when book changes or trades occur.
     TradeEngine *trade_engine_ = nullptr;
 
     /// Hash map from OrderId -> MarketOrder.
-    OrderHashMap oid_to_order_;
+    OrderHashMap oid_to_order_{};
 
     /// Memory pool to manage MarketOrdersAtPrice objects.
     MemPool<MarketOrdersAtPrice> orders_at_price_pool_;
@@ -86,7 +87,7 @@ namespace Trading {
     MarketOrdersAtPrice *asks_by_price_ = nullptr;
 
     /// Hash map from Price -> MarketOrdersAtPrice.
-    OrdersAtPriceHashMap price_orders_at_price_;
+    OrdersAtPriceHashMap price_orders_at_price_{};
 
     /// Memory pool to manage MarketOrder objects.
     MemPool<MarketOrder> order_pool_;
@@ -98,7 +99,7 @@ namespace Trading {
 
   private:
     auto priceToIndex(Price price) const noexcept {
-      return (price % ME_MAX_PRICE_LEVELS);
+      return (price % kMaxPriceLevels);
     }
 
     /// Fetch and return the MarketOrdersAtPrice corresponding to the provided price.
@@ -223,6 +224,6 @@ namespace Trading {
     }
   };
 
-  /// Hash map from TickerId -> MarketOrderBook.
-  typedef std::array<MarketOrderBook *, ME_MAX_TICKERS> MarketOrderBookHashMap;
+  /// Hash map from SymbolId -> MarketOrderBook.
+  typedef std::array<MarketOrderBook *, kMaxSymbols> MarketOrderBookHashMap;
 }

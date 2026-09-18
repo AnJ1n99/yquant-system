@@ -5,10 +5,11 @@
 
 #include "position_keeper.h"
 #include "om_order.h"
+#include "trade_engine_config.h"
 
-using namespace Common;
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   class OrderManager;
 
   /// Enumeration that captures the result of a risk check - ALLOWED means it passed all risk checks, the other values represent the failure reason.
@@ -45,11 +46,11 @@ namespace Trading {
 
     /// Check risk to see if we are allowed to send an order of the specified quantity on the specified side.
     /// Will return a RiskCheckResult value to convey the output of the risk check.
-    auto checkPreTradeRisk(Side side, Qty qty) const noexcept {
+    auto checkPreTradeRisk(Side side, Quantity qty) const noexcept {
       // check order-size
-      if (UNLIKELY(qty > risk_cfg_.max_order_size_))
+      if (UNLIKELY(qty == 0 || qty > risk_cfg_.max_order_size_))
         return RiskCheckResult::ORDER_TOO_LARGE;
-      if (UNLIKELY(std::abs(position_info_->position_ + sideToValue(side) * static_cast<int32_t>(qty)) > static_cast<int32_t>(risk_cfg_.max_position_)))
+      if (UNLIKELY(std::abs(position_info_->position_ + (side == Side::BUY ? int64_t{1} : int64_t{-1}) * static_cast<int64_t>(qty)) > static_cast<int64_t>(risk_cfg_.max_position_)))
         return RiskCheckResult::POSITION_TOO_LARGE;
       if (UNLIKELY(position_info_->total_pnl_ < risk_cfg_.max_loss_))
         return RiskCheckResult::LOSS_TOO_LARGE;
@@ -68,15 +69,15 @@ namespace Trading {
     }
   };
 
-  /// Hash map from TickerId -> RiskInfo.
-  typedef std::array<RiskInfo, ME_MAX_TICKERS> TickerRiskInfoHashMap;
+  /// Hash map from SymbolId -> RiskInfo.
+  typedef std::array<RiskInfo, kMaxSymbols> TickerRiskInfoHashMap;
 
   /// Top level risk manager class to compute and check risk across all trading instruments.
   class RiskManager {
   public:
-    RiskManager(Common::Logger *logger, const PositionKeeper *position_keeper, const TradeEngineCfgHashMap &ticker_cfg);
+    RiskManager(const PositionKeeper *position_keeper, const TradeEngineCfgHashMap &ticker_cfg);
 
-    auto checkPreTradeRisk(TickerId ticker_id, Side side, Qty qty) const noexcept {
+    auto checkPreTradeRisk(SymbolId ticker_id, Side side, Quantity qty) const noexcept {
       return ticker_risk_.at(ticker_id).checkPreTradeRisk(side, qty);
     }
 
@@ -92,10 +93,7 @@ namespace Trading {
     RiskManager &operator=(const RiskManager &&) = delete;
 
   private:
-    std::string time_str_;
-    Common::Logger *logger_ = nullptr;
-
-    /// Hash map container from TickerId -> RiskInfo.
+    /// Hash map container from SymbolId -> RiskInfo.
     TickerRiskInfoHashMap ticker_risk_;
   };
 }

@@ -16,6 +16,10 @@ namespace exchange {
 class OrderManager;
 }
 
+namespace trading {
+class OrderGateway;
+}
+
 namespace common {
 // size of our send and receive buffers in bytes.
 constexpr size_t TCPBufferSize = 64 * 1024 * 1024;  // 64MB
@@ -23,6 +27,7 @@ constexpr size_t TCPBufferSize = 64 * 1024 * 1024;  // 64MB
 class TCPSocket {
   friend class TCPServer;
   friend class exchange::OrderManager;
+  friend class trading::OrderGateway;
 
  public:
   explicit TCPSocket(Logger& logger) : logger_(logger) {

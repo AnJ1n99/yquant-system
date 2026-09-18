@@ -1,37 +1,44 @@
 #pragma once
 
+#include <atomic>
 #include <functional>
+#include <memory>
 #include <map>
 
 #include "common/thread_utils.h"
-#include "common/lf_queue.h"
+#include "common/ringBuffer.h"
 #include "common/macros.h"
 #include "common/mcast_socket.h"
 
 #include "exchange/market_data/market_update.h"
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   class MarketDataConsumer {
   public:
-    MarketDataConsumer(Common::ClientId client_id, Exchange::MEMarketUpdateLFQueue *market_updates, const std::string &iface,
+    MarketDataConsumer(common::ClientId client_id, exchange::MatchingEngineMarketUpdateLFQueue *market_updates, const std::string &iface,
                        const std::string &snapshot_ip, int snapshot_port,
                        const std::string &incremental_ip, int incremental_port);
 
     ~MarketDataConsumer() {
       stop();
 
-      using namespace std::literals::chrono_literals;
-      std::this_thread::sleep_for(5s);
+      incremental_mcast_socket_.leave();
+      snapshot_mcast_socket_.leave();
     }
 
     /// Start and stop the market data consumer main thread.
     auto start() {
+      if (thread_) return;
       run_ = true;
-      ASSERT(Common::createAndStartThread(-1, "Trading/MarketDataConsumer", [this]() { run(); }) != nullptr, "Failed to start MarketData thread.");
+      thread_.reset(common::createAndStartThread(-1, "trading/MarketDataConsumer", [this]() { run(); }));
+      ASSERT(thread_ != nullptr, "Failed to start MarketData thread.");
     }
 
     auto stop() -> void {
       run_ = false;
+      if (thread_ && thread_->joinable()) thread_->join();
+      thread_.reset();
     }
 
     /// Deleted default, copy & move constructors and assignment-operators.
@@ -47,18 +54,19 @@ namespace Trading {
 
   private:
     /// Track the next expected sequence number on the incremental market data stream, used to detect gaps / drops.
-    size_t next_exp_inc_seq_num_ = 1;
+    ssize_t next_exp_inc_seq_num_ = 1;
 
     /// Lock free queue on which decoded market data updates are pushed to, to be consumed by the trade engine.
-    Exchange::MEMarketUpdateLFQueue *incoming_md_updates_ = nullptr;
+    exchange::MatchingEngineMarketUpdateLFQueue *incoming_md_updates_ = nullptr;
 
-    volatile bool run_ = false;
+    std::atomic<bool> run_{false};
+    std::unique_ptr<std::thread> thread_;
 
     std::string time_str_;
     Logger logger_;
 
     /// Multicast subscriber sockets for the incremental and market data streams.
-    Common::McastSocket incremental_mcast_socket_, snapshot_mcast_socket_;
+    common::McastSocket incremental_mcast_socket_, snapshot_mcast_socket_;
 
     /// Tracks if we are currently in the process of recovering / synchronizing with the snapshot market data stream either because we just started up or we dropped a packet.
     bool in_recovery_ = false;
@@ -68,7 +76,7 @@ namespace Trading {
     const int snapshot_port_;
 
     /// Containers to queue up market data updates from the snapshot and incremental channels, queued up in order of increasing sequence numbers.
-    typedef std::map<size_t, Exchange::MEMarketUpdate> QueuedMarketUpdates;
+    typedef std::map<ssize_t, exchange::MatchingEngineMarketUpdate> QueuedMarketUpdates;
     QueuedMarketUpdates snapshot_queued_msgs_, incremental_queued_msgs_;
 
   private:
@@ -79,7 +87,7 @@ namespace Trading {
     auto recvCallback(McastSocket *socket) noexcept -> void;
 
     /// Queue up a message in the *_queued_msgs_ containers, first parameter specifies if this update came from the snapshot or the incremental streams.
-    auto queueMessage(bool is_snapshot, const Exchange::MDPMarketUpdate *request);
+    auto queueMessage(bool is_snapshot, const exchange::MarketDataPublisherMarketUpdate *request);
 
     /// Start the process of snapshot synchronization by subscribing to the snapshot multicast stream.
     auto startSnapshotSync() -> void;
