@@ -31,7 +31,7 @@ namespace trading {
     auto start() {
       if (thread_) return;
       run_ = true;
-      thread_.reset(common::createAndStartThread(-1, "trading/MarketDataConsumer", [this]() { run(); }));
+      thread_.reset(common::createAndStartThread(5, "trading/MarketDataConsumer", [this]() { run(); }));
       ASSERT(thread_ != nullptr, "Failed to start MarketData thread.");
     }
 

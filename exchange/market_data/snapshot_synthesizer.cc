@@ -28,7 +28,7 @@ SnapshotSynthesizer::~SnapshotSynthesizer() {
 void SnapshotSynthesizer::start() {
   run_ = true;
   
-  ASSERT(common::createAndStartThread(-1, "Exchange/SnapshotSynthesizer", 
+  ASSERT(common::createAndStartThread(4, "Exchange/SnapshotSynthesizer", 
     [this]() { 
       run(); 
     }) != nullptr,

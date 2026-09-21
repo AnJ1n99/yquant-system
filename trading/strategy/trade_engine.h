@@ -42,7 +42,7 @@ namespace trading {
       if (thread_) return;
       stopping_ = false;
       run_ = true;
-      thread_.reset(common::createAndStartThread(-1, "trading/TradeEngine", [this] { run(); }));
+      thread_.reset(common::createAndStartThread(6, "trading/TradeEngine", [this] { run(); }));
       ASSERT(thread_ != nullptr, "Failed to start TradeEngine thread.");
     }
 
