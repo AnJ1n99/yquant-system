@@ -2,8 +2,9 @@
 
 #include "trade_engine.h"
 
-namespace Trading {
-  MarketMaker::MarketMaker(Common::Logger *logger, TradeEngine *trade_engine, const FeatureEngine *feature_engine,
+namespace trading {
+  using namespace common;
+  MarketMaker::MarketMaker(common::Logger *logger, TradeEngine *trade_engine, const FeatureEngine *feature_engine,
                            OrderManager *order_manager, const TradeEngineCfgHashMap &ticker_cfg)
       : feature_engine_(feature_engine), order_manager_(order_manager), logger_(logger),
         ticker_cfg_(ticker_cfg) {

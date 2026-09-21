@@ -69,7 +69,7 @@ auto TCPServer::poll() noexcept -> void {
   while (haveNewConnection) {
     GetCurrentTimeStr(time_str_);
     logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__,
-                __FUNCTION__, time_str_);
+                __FUNCTION__, time_str_, listener_socket_.socket_fd_);
     sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
     int fd = accept(listener_socket_.socket_fd_, (sockaddr*)&addr, &addr_len);

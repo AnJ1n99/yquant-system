@@ -1,16 +1,17 @@
 #include "market_order.h"
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   auto MarketOrder::toString() const -> std::string {
     std::stringstream ss;
     ss << "MarketOrder" << "["
-       << "oid:" << orderIdToString(order_id_) << " "
-       << "side:" << sideToString(side_) << " "
-       << "price:" << priceToString(price_) << " "
-       << "qty:" << qtyToString(qty_) << " "
-       << "prio:" << priorityToString(priority_) << " "
-       << "prev:" << orderIdToString(prev_order_ ? prev_order_->order_id_ : OrderId_INVALID) << " "
-       << "next:" << orderIdToString(next_order_ ? next_order_->order_id_ : OrderId_INVALID) << "]";
+       << "oid:" << std::to_string(order_id_) << " "
+       << "side:" << std::to_string(static_cast<unsigned>(side_)) << " "
+       << "price:" << std::to_string(price_) << " "
+       << "qty:" << std::to_string(qty_) << " "
+       << "prio:" << std::to_string(priority_) << " "
+       << "prev:" << std::to_string(prev_order_ ? prev_order_->order_id_ : 0) << " "
+       << "next:" << std::to_string(next_order_ ? next_order_->order_id_ : 0) << "]";
 
     return ss.str();
   }

@@ -36,9 +36,10 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/common
 )
 
-# Libraries. Application entry points live outside this tree (or local main.cpp).
+# 公共库与交易所、交易端入口。
 add_subdirectory(common)
 add_subdirectory(exchange)
+add_subdirectory(trading)
 
 option(BUILD_BENCHMARKS "构建基准测试" OFF)
 if(BUILD_BENCHMARKS)

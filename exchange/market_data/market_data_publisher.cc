@@ -31,7 +31,7 @@ void MarketDataPublisher::start() {
   // Start the market data publishing thread
   // This thread will read from the marketUpdates queue and publish via UDP
   // multicast
-  ASSERT(common::createAndStartThread(-1, "Exchange/MarketDataPublisher", 
+  ASSERT(common::createAndStartThread(3, "Exchange/MarketDataPublisher", 
     [this]() { 
       run(); 
     }) != nullptr, "Failed to start MarketData thread.");

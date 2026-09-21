@@ -4,9 +4,9 @@
 #include <sstream>
 #include "common/types.h"
 
-using namespace Common;
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   /// Represents the type / action in the order structure in the order manager.
   enum class OMOrderState : int8_t {
     INVALID = 0,
@@ -35,21 +35,21 @@ namespace Trading {
 
   /// Internal structure used by the order manager to represent a single strategy order.
   struct OMOrder {
-    TickerId ticker_id_ = TickerId_INVALID;
-    OrderId order_id_ = OrderId_INVALID;
-    Side side_ = Side::INVALID;
-    Price price_ = Price_INVALID;
-    Qty qty_ = Qty_INVALID;
+    SymbolId ticker_id_ = 0;
+    OrderId order_id_ = 0;
+    Side side_ = Side::BUY;
+    Price price_ = 0;
+    Quantity qty_ = 0;
     OMOrderState order_state_ = OMOrderState::INVALID;
 
     auto toString() const {
       std::stringstream ss;
       ss << "OMOrder" << "["
-         << "tid:" << tickerIdToString(ticker_id_) << " "
-         << "oid:" << orderIdToString(order_id_) << " "
-         << "side:" << sideToString(side_) << " "
-         << "price:" << priceToString(price_) << " "
-         << "qty:" << qtyToString(qty_) << " "
+         << "tid:" << std::to_string(ticker_id_) << " "
+         << "oid:" << std::to_string(order_id_) << " "
+         << "side:" << std::to_string(static_cast<unsigned>(side_)) << " "
+         << "price:" << std::to_string(price_) << " "
+         << "qty:" << std::to_string(qty_) << " "
          << "state:" << OMOrderStateToString(order_state_) << "]";
 
       return ss.str();
@@ -57,8 +57,8 @@ namespace Trading {
   };
 
   /// Hash map from Side -> OMOrder.
-  typedef std::array<OMOrder, sideToIndex(Side::MAX) + 1> OMOrderSideHashMap;
+  typedef std::array<OMOrder, 2> OMOrderSideHashMap;
 
-  /// Hash map from TickerId -> Side -> OMOrder.
-  typedef std::array<OMOrderSideHashMap, ME_MAX_TICKERS> OMOrderTickerSideHashMap;
+  /// Hash map from SymbolId -> Side -> OMOrder.
+  typedef std::array<OMOrderSideHashMap, kMaxSymbols> OMOrderTickerSideHashMap;
 }

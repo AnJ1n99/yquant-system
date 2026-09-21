@@ -6,27 +6,29 @@
 #include "order_manager.h"
 #include "feature_engine.h"
 
-using namespace Common;
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   class MarketMaker {
   public:
-    MarketMaker(Common::Logger *logger, TradeEngine *trade_engine, const FeatureEngine *feature_engine,
+    MarketMaker(common::Logger *logger, TradeEngine *trade_engine, const FeatureEngine *feature_engine,
                 OrderManager *order_manager,
                 const TradeEngineCfgHashMap &ticker_cfg);
 
     /// Process order book updates, fetch the fair market price from the feature engine, check against the trading threshold and modify the passive orders.
-    auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side, const MarketOrderBook *book) noexcept -> void {
+    auto onOrderBookUpdate(SymbolId ticker_id, Price price, Side side, const MarketOrderBook *book) noexcept -> void {
+      common::GetCurrentTimeStr(time_str_);
       logger_->log("%:% %() % ticker:% price:% side:%\n", __FILE__, __LINE__, __FUNCTION__,
-                   Common::getCurrentTimeStr(&time_str_), ticker_id, Common::priceToString(price).c_str(),
-                   Common::sideToString(side).c_str());
+                   time_str_, ticker_id, std::to_string(price).c_str(),
+                   std::to_string(static_cast<unsigned>(side)).c_str());
 
       const auto bbo = book->getBBO();
       const auto fair_price = feature_engine_->getMktPrice();
 
-      if (LIKELY(bbo->bid_price_ != Price_INVALID && bbo->ask_price_ != Price_INVALID && fair_price != Feature_INVALID)) {
+      if (LIKELY(bbo->bid_qty_ != 0 && bbo->ask_qty_ != 0 && std::isfinite(fair_price))) {
+        common::GetCurrentTimeStr(time_str_);
         logger_->log("%:% %() % % fair-price:%\n", __FILE__, __LINE__, __FUNCTION__,
-                     Common::getCurrentTimeStr(&time_str_),
+                     time_str_,
                      bbo->toString().c_str(), fair_price);
 
         const auto clip = ticker_cfg_.at(ticker_id).clip_;
@@ -42,14 +44,16 @@ namespace Trading {
     }
 
     /// Process trade events, which for the market making algorithm is none.
-    auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook * /* book */) noexcept -> void {
-      logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
+    auto onTradeUpdate(const exchange::MatchingEngineMarketUpdate *market_update, MarketOrderBook * /* book */) noexcept -> void {
+      common::GetCurrentTimeStr(time_str_);
+      logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
                    market_update->toString().c_str());
     }
 
     /// Process client responses for the strategy's orders.
-    auto onOrderUpdate(const Exchange::MEClientResponse *client_response) noexcept -> void {
-      logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
+    auto onOrderUpdate(const exchange::MatchingEngineClientResponse *client_response) noexcept -> void {
+      common::GetCurrentTimeStr(time_str_);
+      logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, time_str_,
                    client_response->toString().c_str());
 
       START_MEASURE(Trading_OrderManager_onOrderUpdate);
@@ -76,7 +80,7 @@ namespace Trading {
     OrderManager *order_manager_ = nullptr;
 
     std::string time_str_;
-    Common::Logger *logger_ = nullptr;
+    common::Logger *logger_ = nullptr;
 
     /// Holds the trading configuration for the market making algorithm.
     const TradeEngineCfgHashMap ticker_cfg_;

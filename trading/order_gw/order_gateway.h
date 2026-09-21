@@ -1,39 +1,50 @@
 #pragma once
 
+#include <atomic>
+#include <cerrno>
+#include <cstring>
 #include <functional>
+#include <memory>
 
 #include "common/thread_utils.h"
 #include "common/macros.h"
-#include "common/tcp_server.h"
+#include "common/tcp_socket.h"
 
-#include "exchange/order_server/client_request.h"
-#include "exchange/order_server/client_response.h"
+#include "exchange/order_manager/client_request.h"
+#include "exchange/order_manager/client_response.h"
 
-namespace Trading {
+namespace trading {
+  using namespace common;
   class OrderGateway {
   public:
     OrderGateway(ClientId client_id,
-                 Exchange::ClientRequestLFQueue *client_requests,
-                 Exchange::ClientResponseLFQueue *client_responses,
+                 exchange::ClientRequestLFQueue *client_requests,
+                 exchange::ClientResponseLFQueue *client_responses,
                  std::string ip, const std::string &iface, int port);
 
     ~OrderGateway() {
       stop();
 
-      using namespace std::literals::chrono_literals;
-      std::this_thread::sleep_for(5s);
+      if (tcp_socket_.socket_fd_ >= 0) {
+        close(tcp_socket_.socket_fd_);
+        tcp_socket_.setSocketFd(-1);
+      }
     }
 
     /// Start and stop the order gateway main thread.
     auto start() {
+      if (thread_) return;
       run_ = true;
       ASSERT(tcp_socket_.connect(ip_, iface_, port_, false) >= 0,
              "Unable to connect to ip:" + ip_ + " port:" + std::to_string(port_) + " on iface:" + iface_ + " error:" + std::string(std::strerror(errno)));
-      ASSERT(Common::createAndStartThread(-1, "Trading/OrderGateway", [this]() { run(); }) != nullptr, "Failed to start OrderGateway thread.");
+      thread_.reset(common::createAndStartThread(7, "trading/OrderGateway", [this]() { run(); }));
+      ASSERT(thread_ != nullptr, "Failed to start OrderGateway thread.");
     }
 
     auto stop() -> void {
       run_ = false;
+      if (thread_ && thread_->joinable()) thread_->join();
+      thread_.reset();
     }
 
     /// Deleted default, copy & move constructors and assignment-operators.
@@ -50,18 +61,19 @@ namespace Trading {
   private:
     const ClientId client_id_;
 
-    /// Exchange's order server's TCP server address.
+    /// exchange's order server's TCP server address.
     std::string ip_;
     const std::string iface_;
     const int port_ = 0;
 
     /// Lock free queue on which we consume client requests from the trade engine and forward them to the exchange's order server.
-    Exchange::ClientRequestLFQueue *outgoing_requests_ = nullptr;
+    exchange::ClientRequestLFQueue *outgoing_requests_ = nullptr;
 
     /// Lock free queue on which we write client responses which we read and processed from the exchange, to be consumed by the trade engine.
-    Exchange::ClientResponseLFQueue *incoming_responses_ = nullptr;
+    exchange::ClientResponseLFQueue *incoming_responses_ = nullptr;
 
-    volatile bool run_ = false;
+    std::atomic<bool> run_{false};
+    std::unique_ptr<std::thread> thread_;
 
     std::string time_str_;
     Logger logger_;
@@ -71,7 +83,7 @@ namespace Trading {
     size_t next_exp_seq_num_ = 1;
 
     /// TCP connection to the exchange's order server.
-    Common::TCPSocket tcp_socket_;
+    common::TCPSocket tcp_socket_;
 
   private:
     /// Main thread loop - sends out client requests to the exchange and reads and dispatches incoming client responses.

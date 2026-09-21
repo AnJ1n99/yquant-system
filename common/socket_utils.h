@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <poll.h>
 #include <sys/fcntl.h>
 #include <sys/socket.h>
 
@@ -143,8 +144,22 @@ inline bool join(int fd, const std::string& ip) {
     }
 
     if (!socketCFG.isListening_) {  // establish connection to specified address
-      ASSERT(connect(socket_fd, rp->ai_addr, rp->ai_addrlen) != -1,
-             "connect() failed. errno :" + std::string(strerror(errno)));
+      const auto connected = connect(socket_fd, rp->ai_addr, rp->ai_addrlen);
+      if (connected == -1 && !socketCFG.isUdp_ && errno == EINPROGRESS) {
+        // 非阻塞 TCP 连接在启动阶段等待完成，避免把 EINPROGRESS 当作失败，
+        // 也避免尚未连接时发送首笔订单；运行循环仍使用非阻塞 I/O。
+        pollfd pending{socket_fd, POLLOUT, 0};
+        int socket_error = 0;
+        socklen_t error_size = sizeof(socket_error);
+        ASSERT(poll(&pending, 1, 5000) > 0 &&
+                   getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &socket_error,
+                              &error_size) == 0 &&
+                   socket_error == 0,
+               "TCP 连接未在启动阶段完成");
+      } else {
+        ASSERT(connected != -1,
+               "connect() failed. errno :" + std::string(strerror(errno)));
+      }
     }
 
     if (socketCFG.isListening_) {
